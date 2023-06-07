@@ -1,8 +1,25 @@
 [package]
-name = "substreams_module_repo"
+name = "soulbound-modules"
 version = "0.1.0"
+description = "A collection of substreams modules meant to make extracting data easy and fast. Built with <3 by SoulboundLabs"
 edition = "2021"
+#repository = "https://github.com/streamingfast/substreams-eth-block-meta"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "soulbound_modules"
+crate-type = ["cdylib"]
 
 [dependencies]
+anyhow = "1"
+prost = "0.11"
+prost-types = "0.11"
+substreams = "0.5"
+substreams-ethereum = "0.9"
+substreams-database-change = "1.0.0"
+substreams-entity-change = "1.1"
+chrono = { version = "0.4", features = [ "std" ], default-features = false }
+
+[profile.release]
+lto = true
+opt-level = 's'
+strip = "debuginfo"

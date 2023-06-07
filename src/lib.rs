@@ -1,14 +1,20 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+mod pb;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+use pb::soulbound_modules::v1::Foo;
+use substreams::{self, errors::Error as SubstreamError};
+use substreams_ethereum::pb::eth::v2 as eth;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+#[substreams::handlers::map]
+pub fn map_blocks(param: String, blk: eth::Block) -> Result<Foo, SubstreamError> {
+    let target_block = param
+        .parse::<u64>()
+        .expect("map_block: error parsing param as u64");
+    if blk.number == target_block {
+        Ok(Foo {
+            number: blk.number,
+            thing: param.clone(),
+        })
+    } else {
+        Ok(Foo::default())
     }
 }
