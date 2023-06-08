@@ -11,10 +11,9 @@ message KeyValue {
   }
 }
 
-message DynamicKeyValue {
+message Hotdog {
   repeated KeyValue keys = 1;
 }
-
 
 message Foo {
   uint64 number = 1;

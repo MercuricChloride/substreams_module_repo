@@ -34,7 +34,15 @@ modules:
       - params: string
       - source: sf.ethereum.type.v2.Block
     output:
-      type: proto:soulbound_modules.v1.DynamicKeyValue
+      type: proto:soulbound_modules.v1.Hotdog
+
+  - name: map_hotdog
+    kind: map
+    inputs:
+      - params: string
+      - map: map_key_value
+    output:
+      type: proto:soulbound_modules.v1.Hotdog
 
   # Example Map
   # name: db_out
