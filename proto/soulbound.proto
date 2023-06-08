@@ -2,6 +2,20 @@ syntax = "proto3";
 
 package soulbound_modules.v1;
 
+message KeyValue {
+  string key = 1;
+  oneof value {
+    string string_value = 2;
+    bytes byte_value = 3;
+    uint64 uint64_value = 4;
+  }
+}
+
+message DynamicKeyValue {
+  repeated KeyValue keys = 1;
+}
+
+
 message Foo {
   uint64 number = 1;
   string thing = 2;
