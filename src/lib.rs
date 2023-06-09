@@ -3,7 +3,7 @@ mod pb;
 
 use std::collections::HashMap;
 
-use helpers::{hashmap_to_hotdog, hotdog_to_hashmap};
+use helpers::{format_hex, hashmap_to_hotdog, hotdog_to_hashmap};
 use pb::soulbound_modules::v1::{
     key_value::{self, Value},
     Foo, Hotdog, Hotdogs, KeyValue,
@@ -81,10 +81,19 @@ pub fn map_event(param: String, blk: eth::Block) -> Result<Hotdogs, SubstreamErr
     let hotdogs: Vec<Hotdog> = blk
         .logs()
         .filter_map(|log| {
-            if
-            //event_signature.matches_log(&log) &&
-            *log.address() == contract_address.as_bytes()[2..] {
-                panic!("hey it matches");
+            let emitter = format_hex(log.address());
+            // let mut map = HashMap::new();
+            // map.insert(
+            //     "param_address".to_string(),
+            //     Value::StringValue(contract_address.clone()),
+            // );
+            // map.insert(
+            //     "emitter".to_string(),
+            //     Value::StringValue(format_hex(log.address())),
+            // );
+            // let hotdog = hashmap_to_hotdog(map);
+            // Some(hotdog)
+            if event_signature.matches_log(&log) && emitter == contract_address {
                 Some(log_to_hotdog(&log, &event_signature))
             } else {
                 None

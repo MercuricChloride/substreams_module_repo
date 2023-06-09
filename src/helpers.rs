@@ -2,7 +2,12 @@ use std::{collections::HashMap, str::from_utf8};
 
 use crate::pb::soulbound_modules::v1::{key_value::Value, Hotdog, KeyValue};
 use sha3::{self, Digest};
+use substreams::{scalar::BigInt, Hex};
 use substreams_ethereum::{block_view::LogView, pb::eth::v2::Log};
+
+pub fn format_hex(hex: &[u8]) -> String {
+    format!("0x{}", Hex(hex).to_string())
+}
 
 /// TODO This is pretty slow, I gotta update this
 pub fn hotdog_to_hashmap(hotdog: &Hotdog) -> HashMap<String, Value> {
@@ -42,8 +47,8 @@ impl EventSignature {
     /// Takes an input string of the form,
     /// (EventName&type_indexed?_name&type_indexed_name)
     pub fn from_str(input_string: &str) -> EventSignature {
-        // remove the parens and split along commas
-        let split = input_string.trim()[1..input_string.len() - 2]
+        // remove the parens and split along &
+        let split = input_string.trim()[1..input_string.len() - 1]
             .split("&")
             .collect::<Vec<_>>();
         let event_name = split[0].trim().to_string();
@@ -113,6 +118,9 @@ impl EventSignature {
 
     pub fn matches_log(&self, log: &LogView) -> bool {
         let topic_0 = self.get_topic_0();
+        if log.topics().len() == 0 {
+            return false;
+        }
         log.topics()[0] == topic_0
     }
 }
@@ -143,10 +151,10 @@ pub fn log_to_hotdog(log: &LogView, event_signature: &EventSignature) -> Hotdog 
     let mut map = HashMap::new();
 
     let topics = log.topics();
-    let _data = log.data();
+    let data = log.data();
 
     let mut topic_index = 1;
-    let mut _data_index = 0;
+    let mut data_index = 0;
 
     for param in event_signature.params.iter() {
         if param.indexed {
@@ -158,14 +166,40 @@ pub fn log_to_hotdog(log: &LogView, event_signature: &EventSignature) -> Hotdog 
                     let value = from_utf8(&value).unwrap();
                     Value::StringValue(value.to_string())
                 }
-                EventParamType::Address => Value::ByteValue(value[12..].to_vec()),
-                EventParamType::Uint256 => Value::Uint64Value(69), //TODO this isn't safe lol
+                EventParamType::Address => Value::StringValue(format_hex(&value[12..])),
+                EventParamType::Uint256 => {
+                    Value::StringValue(BigInt::from_signed_bytes_be(value).to_string())
+                }
             };
             map.insert(param.param_name.clone(), decoded_value);
 
             topic_index += 1;
         } else {
-            todo!("Decode non-indexed params from log data")
+            let data = &data[data_index..];
+
+            let size = match param.param_type {
+                EventParamType::String => {
+                    // the first 32 bytes contain the length
+                    let byte_string_size = &data[..32];
+                    usize::from_be_bytes(byte_string_size.try_into().unwrap())
+                }
+                EventParamType::Address => 20 as usize,
+                EventParamType::Uint256 => 32 as usize,
+            };
+
+            let bytes = &data[..size];
+
+            let decoded_value = match param.param_type {
+                EventParamType::String => {
+                    let value = from_utf8(bytes).unwrap();
+                    Value::StringValue(value.to_string())
+                }
+                EventParamType::Address => Value::StringValue(format_hex(bytes)),
+                EventParamType::Uint256 => {
+                    Value::StringValue(BigInt::from_unsigned_bytes_be(&bytes).to_string())
+                }
+            };
+            map.insert(param.param_name.clone(), decoded_value);
         }
     }
 
