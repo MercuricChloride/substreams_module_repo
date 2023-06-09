@@ -18,6 +18,7 @@ substreams-ethereum = "0.9"
 substreams-database-change = "1.0.0"
 substreams-entity-change = "1.1"
 chrono = { version = "0.4", features = [ "std" ], default-features = false }
+sha3 = "0.10.8"
 
 [profile.release]
 lto = true

@@ -6,12 +6,12 @@ use std::collections::HashMap;
 use helpers::{hashmap_to_hotdog, hotdog_to_hashmap};
 use pb::soulbound_modules::v1::{
     key_value::{self, Value},
-    Foo, Hotdog, KeyValue,
+    Foo, Hotdog, Hotdogs, KeyValue,
 };
-use prost::{encoding::message::encode, Message};
-use prost_types::value::Kind;
 use substreams::{self, errors::Error as SubstreamError};
-use substreams_ethereum::pb::eth::v2 as eth;
+use substreams_ethereum::{block_view::LogView, pb::eth::v2 as eth};
+
+use crate::helpers::{log_to_hotdog, EventSignature};
 
 #[substreams::handlers::map]
 pub fn map_blocks(param: String, blk: eth::Block) -> Result<Foo, SubstreamError> {
@@ -64,4 +64,33 @@ pub fn map_hotdog(param: String, hotdog: Hotdog) -> Result<Hotdog, SubstreamErro
     }
 
     Ok(hashmap_to_hotdog(output_hash))
+}
+
+// Example InputString
+//contract_address-(EventName, type indexed? name, type indexed? name)
+
+// returns a hotdog with those fields
+#[substreams::handlers::map]
+pub fn map_event(param: String, blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
+    let split: Vec<&str> = param.split("&&").collect();
+
+    let contract_address = split.first().unwrap().to_lowercase();
+
+    let event_signature = EventSignature::from_str(*split.last().unwrap());
+
+    let hotdogs: Vec<Hotdog> = blk
+        .logs()
+        .filter_map(|log| {
+            if
+            //event_signature.matches_log(&log) &&
+            *log.address() == contract_address.as_bytes()[2..] {
+                panic!("hey it matches");
+                Some(log_to_hotdog(&log, &event_signature))
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    Ok(Hotdogs { hotdogs })
 }

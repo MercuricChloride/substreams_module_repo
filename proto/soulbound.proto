@@ -15,6 +15,10 @@ message Hotdog {
   repeated KeyValue keys = 1;
 }
 
+message Hotdogs {
+  repeated Hotdog hotdogs = 1;
+}
+
 message Foo {
   uint64 number = 1;
   string thing = 2;
