@@ -19,7 +19,6 @@ binaries:
     file: ./target/wasm32-unknown-unknown/release/soulbound_modules.wasm
 
 modules:
-
   - name: map_blocks
     kind: map
     inputs:
@@ -51,6 +50,8 @@ modules:
       - source: sf.ethereum.type.v2.Block
     output:
       type: proto:soulbound_modules.v1.Hotdogs
+params:
+  map_event: "0x5Af0D9827E0c53E4799BB226655A1de152A425a5&&(Transfer&address_indexed_from&address_indexed_to&uint256_indexed_tokenId)"
 
   # Example Map
   # name: db_out

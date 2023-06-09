@@ -147,7 +147,39 @@ impl ToString for EventParamType {
     }
 }
 
-pub fn log_to_hotdog(log: &LogView, event_signature: &EventSignature) -> Hotdog {
+fn add_tx_meta(
+    map: &mut HashMap<String, Value>,
+    log: &LogView,
+    block_timestamp: &String,
+    block_hash: &String,
+    block_number: u64,
+) {
+    map.insert(
+        "tx_hash".to_string(),
+        Value::StringValue(format_hex(&log.receipt.transaction.hash)),
+    );
+    map.insert(
+        "tx_index".to_string(),
+        Value::StringValue(log.receipt.transaction.index.to_string()),
+    );
+    map.insert("block_number".to_string(), Value::Uint64Value(block_number));
+    map.insert(
+        "block_hash".to_string(),
+        Value::StringValue(block_hash.clone()),
+    );
+    map.insert(
+        "block_timestamp".to_string(),
+        Value::StringValue(block_timestamp.clone()),
+    );
+}
+
+pub fn log_to_hotdog(
+    log: &LogView,
+    event_signature: &EventSignature,
+    block_number: u64,
+    block_timestamp: &String,
+    block_hash: &String,
+) -> Hotdog {
     let mut map = HashMap::new();
 
     let topics = log.topics();
@@ -155,6 +187,8 @@ pub fn log_to_hotdog(log: &LogView, event_signature: &EventSignature) -> Hotdog 
 
     let mut topic_index = 1;
     let mut data_index = 0;
+
+    add_tx_meta(&mut map, log, block_timestamp, block_hash, block_number);
 
     for param in event_signature.params.iter() {
         if param.indexed {
@@ -200,6 +234,7 @@ pub fn log_to_hotdog(log: &LogView, event_signature: &EventSignature) -> Hotdog 
                 }
             };
             map.insert(param.param_name.clone(), decoded_value);
+            data_index += size;
         }
     }
 

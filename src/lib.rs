@@ -67,7 +67,7 @@ pub fn map_hotdog(param: String, hotdog: Hotdog) -> Result<Hotdog, SubstreamErro
 }
 
 // Example InputString
-//contract_address-(EventName, type indexed? name, type indexed? name)
+//contract_address&&(EventName&type_indexed_name&type_indexed_name)
 
 // returns a hotdog with those fields
 #[substreams::handlers::map]
@@ -77,24 +77,29 @@ pub fn map_event(param: String, blk: eth::Block) -> Result<Hotdogs, SubstreamErr
     let contract_address = split.first().unwrap().to_lowercase();
 
     let event_signature = EventSignature::from_str(*split.last().unwrap());
+    let block_hash = format_hex(&blk.hash);
+    let block_number = blk.number;
+    let block_timestamp = blk
+        .header
+        .clone()
+        .unwrap()
+        .timestamp
+        .unwrap()
+        .seconds
+        .to_string();
 
     let hotdogs: Vec<Hotdog> = blk
         .logs()
         .filter_map(|log| {
             let emitter = format_hex(log.address());
-            // let mut map = HashMap::new();
-            // map.insert(
-            //     "param_address".to_string(),
-            //     Value::StringValue(contract_address.clone()),
-            // );
-            // map.insert(
-            //     "emitter".to_string(),
-            //     Value::StringValue(format_hex(log.address())),
-            // );
-            // let hotdog = hashmap_to_hotdog(map);
-            // Some(hotdog)
             if event_signature.matches_log(&log) && emitter == contract_address {
-                Some(log_to_hotdog(&log, &event_signature))
+                Some(log_to_hotdog(
+                    &log,
+                    &event_signature,
+                    block_number,
+                    &block_timestamp,
+                    &block_hash,
+                ))
             } else {
                 None
             }
