@@ -1,4 +1,4 @@
-use std::{collections::HashMap, str::from_utf8};
+use std::{collections::HashMap, ops::Mul, str::from_utf8};
 
 use crate::pb::soulbound_modules::v1::{key_value::Value, Hotdog, KeyValue};
 use sha3::{self, Digest};
@@ -162,6 +162,30 @@ fn add_tx_meta(
         "tx_index".to_string(),
         Value::StringValue(log.receipt.transaction.index.to_string()),
     );
+    map.insert(
+        "tx_from".to_string(),
+        Value::StringValue(format_hex(&log.receipt.transaction.from)),
+    );
+    map.insert(
+        "tx_to".to_string(),
+        Value::StringValue(format_hex(&log.receipt.transaction.to)),
+    );
+    let gas_used = log.receipt.transaction.gas_used;
+    map.insert(
+        "tx_gas_used".to_string(),
+        Value::StringValue(gas_used.to_string()),
+    );
+    if let Some(gas_price) = &log.receipt.transaction.gas_price {
+        let gas_price = BigInt::from_unsigned_bytes_be(&gas_price.bytes);
+        map.insert(
+            "tx_gas_price".to_string(),
+            Value::StringValue(gas_price.to_string()),
+        );
+        map.insert(
+            "tx_total_gas_price".to_string(),
+            Value::StringValue(gas_price.mul(gas_used).to_string()),
+        );
+    }
     map.insert("block_number".to_string(), Value::Uint64Value(block_number));
     map.insert(
         "block_hash".to_string(),
