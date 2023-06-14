@@ -1,6 +1,6 @@
 use std::{collections::HashMap, ops::Mul, str::from_utf8};
 
-use crate::pb::soulbound_modules::v1::{key_value::Value, Hotdog, KeyValue};
+use crate::pb::soulbound_modules::v1::{key_value::Value, Hotdog, KeyValue, Hotdogs};
 use sha3::{self, Digest};
 use substreams::{scalar::BigInt, Hex};
 use substreams_ethereum::{block_view::LogView, pb::eth::v2::Log};
@@ -12,6 +12,8 @@ pub fn format_hex(hex: &[u8]) -> String {
 /// TODO This is pretty slow, I gotta update this
 pub fn hotdog_to_hashmap(hotdog: &Hotdog) -> HashMap<String, Value> {
     let mut map = HashMap::new();
+
+
     for kv in hotdog.keys.iter() {
         let key = &kv.key;
         let value = &kv.value;
@@ -21,21 +23,32 @@ pub fn hotdog_to_hashmap(hotdog: &Hotdog) -> HashMap<String, Value> {
             println!("{:?} is empty", key);
         }
     }
+
+    map.insert("hotdog_name".to_string(), Value::StringValue(hotdog.hotdog_name.clone()));
+
     map
 }
 
 /// TODO This is pretty slow, I gotta update this
 pub fn hashmap_to_hotdog(map: HashMap<String, Value>) -> Hotdog {
     let mut keys: Vec<KeyValue> = vec![];
+    let hotdog_name = if let Value::StringValue(name) = map.get("hotdog_name").unwrap().clone() {
+        name
+    } else {
+        panic!("No hotdog_name in hashmap");
+    };
 
     for (key, value) in map {
+        if key == "hotdog_name" {
+            continue;
+        }
         keys.push(KeyValue {
             key: key.clone(),
             value: Some(value.clone()),
         });
     }
 
-    Hotdog { keys }
+    Hotdog { hotdog_name, keys }
 }
 
 pub struct EventSignature {
@@ -197,6 +210,7 @@ fn add_tx_meta(
     );
 }
 
+
 pub fn log_to_hotdog(
     log: &LogView,
     event_signature: &EventSignature,
@@ -261,6 +275,8 @@ pub fn log_to_hotdog(
             data_index += size;
         }
     }
+
+    map.insert("hotdog_name".to_string(), Value::StringValue(event_signature.event_name.clone()));
 
     hashmap_to_hotdog(map)
 }

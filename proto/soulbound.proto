@@ -12,7 +12,8 @@ message KeyValue {
 }
 
 message Hotdog {
-  repeated KeyValue keys = 1;
+  string hotdog_name = 1;
+  repeated KeyValue keys = 2;
 }
 
 message Hotdogs {

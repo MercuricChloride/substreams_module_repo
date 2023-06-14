@@ -4,8 +4,8 @@ package:
   version: v0.1.0
 
 imports:
+  entities_change: https://github.com/streamingfast/substreams-entity-change/releases/download/v0.2.1/substreams-entity-change-v0.2.1.spkg
   database_change: https://github.com/streamingfast/substreams-database-change/releases/download/v1.0.0/substreams-database-change-v1.0.0.spkg
-  entities_change: https://github.com/streamingfast/substreams-entity-change/releases/download/v1.1.0/substreams-entity-change-v1.1.0.spkg
 
 protobuf:
   files:
@@ -43,15 +43,50 @@ modules:
     output:
       type: proto:soulbound_modules.v1.Hotdog
 
-  - name: map_event
+  - name: map_events
+    initialBlock: 17000000
     kind: map
     inputs:
       - params: string
       - source: sf.ethereum.type.v2.Block
     output:
       type: proto:soulbound_modules.v1.Hotdogs
+
+  - name: store_unique_users
+    initialBlock: 17000000
+    kind: store
+    updatePolicy: set_if_not_exists
+    valueType: bigint
+    inputs:
+      - map: map_events
+
+  - name: count_unique_users
+    initialBlock: 17000000
+    kind: store
+    updatePolicy: add
+    valueType: bigint
+    inputs:
+      - store: store_unique_users
+        mode: deltas
+
+  - name: map_unique_users
+    initialBlock: 17000000
+    kind: map
+    inputs:
+      - store: count_unique_users
+        mode: get
+    output:
+      type: proto:soulbound_modules.v1.Hotdog
+
+  - name: graph_out
+    kind: map
+    inputs:
+      - map: map_events
+    output:
+      type: proto:substreams.entity.v1.EntityChanges
+
 params:
-  map_event: "0x5Af0D9827E0c53E4799BB226655A1de152A425a5&&(Transfer&address_indexed_from&address_indexed_to&uint256_indexed_tokenId)"
+  map_events: "0x5Af0D9827E0c53E4799BB226655A1de152A425a5&&(Transfer&address_indexed_from&address_indexed_to&uint256_indexed_tokenId)"
 
   # Example Map
   # name: db_out
