@@ -2,18 +2,22 @@ syntax = "proto3";
 
 package soulbound_modules.v1;
 
-message KeyValue {
-  string key = 1;
+message Value {
   oneof value {
-    string string_value = 2;
-    bytes byte_value = 3;
-    uint64 uint64_value = 4;
+    int32 int64_value = 1;
+    uint64 uint64_value = 2;
+    string string_value = 3;
+    Map map_value = 4;
   }
+}
+
+message Map {
+  map<string, Value> keys = 1;
 }
 
 message Hotdog {
   string hotdog_name = 1;
-  repeated KeyValue keys = 2;
+  Map map = 2;
 }
 
 message Hotdogs {

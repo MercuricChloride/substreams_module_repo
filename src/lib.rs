@@ -6,8 +6,7 @@ use std::collections::HashMap;
 use substreams::{pb::substreams::store_delta::Operation, store::{StoreAddBigInt, StoreAdd, StoreGetBigInt, StoreGet}};
 use helpers::{format_hex, hashmap_to_hotdog, hotdog_to_hashmap};
 use pb::{soulbound_modules::v1::{
-    key_value::{self, Value},
-    Foo, Hotdog, Hotdogs, KeyValue,
+    Foo, Hotdog, Hotdogs, value::Value as ValueEnum, Value as ValueStruct
 }, sf::substreams::v1::module::input::Store};
 use substreams::{self, errors::Error as SubstreamError, store::{StoreSetIfNotExistsInt64, StoreSetIfNotExists, StoreSetIfNotExistsBigInt, StoreNew, DeltaBigInt, Deltas}, scalar::BigInt};
 use substreams_entity_change::pb::entity::EntityChange;
@@ -79,6 +78,8 @@ pub fn map_events(param: String, blk: eth::Block) -> Result<Hotdogs, SubstreamEr
     let contract_address = split.first().unwrap().to_lowercase();
 
     let event_signature = EventSignature::from_str(*split.last().unwrap());
+    panic!("event_signature: {:?}", event_signature.get_event_signature());
+    //panic!("event_signature: {:?}", format_hex(&event_signature.get_topic_0()));
     let block_hash = format_hex(&blk.hash);
     let block_number = blk.number;
     let block_timestamp = blk
@@ -119,14 +120,14 @@ pub fn store_unique_users(hotdogs: Hotdogs, s: StoreSetIfNotExistsBigInt) {
         }
         let map = hotdog_to_hashmap(&hotdog);
 
-        let from: Value = map.get("from").unwrap().clone();
+        let from: ValueEnum = map.get("from").unwrap().clone();
         let to = map.get("to").unwrap().clone();
 
-        if let Value::StringValue(from) = from {
+        if let ValueEnum::StringValue(from) = from {
             s.set_if_not_exists(0, &from, &BigInt::one());
         }
 
-        if let Value::StringValue(to) = to {
+        if let ValueEnum::StringValue(to) = to {
             s.set_if_not_exists(0, &to, &BigInt::one());
         }
     }
@@ -145,14 +146,13 @@ pub fn count_unique_users(unique_users: Deltas<DeltaBigInt>, s: StoreAddBigInt) 
 #[substreams::handlers::map]
 pub fn map_unique_users(user_count: StoreGetBigInt) -> Result<Hotdog, SubstreamError> {
     if let Some(user_count) = user_count.get_last("unique_user_count") {
-        let mut map: HashMap<String, Value> = HashMap::new();
-        map.insert("hotdog_name".to_string(), Value::StringValue("unique_user_count".to_string()));
-        map.insert("unique_user_count".to_string(), Value::StringValue(user_count.to_string()));
+        let mut map: HashMap<String, ValueEnum> = HashMap::new();
+        map.insert("hotdog_name".to_string(), ValueEnum::StringValue("unique_user_count".to_string()));
+        map.insert("unique_user_count".to_string(), ValueEnum::StringValue(user_count.to_string()));
         Ok(hashmap_to_hotdog(map))
     } else {
         Ok(Hotdog::default())
     }
-
 }
 
 // #[substreams::handlers::map]
