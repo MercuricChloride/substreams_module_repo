@@ -88,7 +88,9 @@ modules:
 params:
   #map_events: "0x5Af0D9827E0c53E4799BB226655A1de152A425a5&&(Transfer&address_indexed_from&address_indexed_to&uint256_indexed_tokenId)"
    #Adding whitespace for readability here
-  map_events: "0x000000000000Ad05Ccc4F10045630fb830B95127&&(OrdersMatched&address_indexed_maker&address_indexed_taker&(address_trader&uint256_side &address_matchingPolicy&address_collection&uint256_tokenId&uint256_amount&address_paymentToken&uint256_price  &uint256_listingTime&uint256_expirationTime&(uint16_rate&address_recipient)_fees&uint256_salt&bytes_extraParams)_sell&bytes32_sellHash&(address_trader&uint256_side&address_matchingPolicy&address_collection&uint256_tokenId&uint256_amount&address_paymentToken&uint256_price&uint256_listingTime&uint256_expirationTime&(uint16_rate&address_recipient)_fees&uint256_salt&bytes_extraParams)_buy&bytes32_buyHash)"
+  #map_events: "0x000000000000Ad05Ccc4F10045630fb830B95127&&(NonceIncremented&address_indexed_trader&uint256_newNonce)"
+  map_events: "0x000000000000Ad05Ccc4F10045630fb830B95127&&(OrdersMatched&address_indexed_maker&address_indexed_taker&(address_trader&uint8_side &address_matchingPolicy&address_collection&uint256_tokenId&uint256_amount&address_paymentToken&uint256_price  &uint256_listingTime&uint256_expirationTime&(uint16_rate&address_recipient)[]_fees&uint256_salt&bytes_extraParams)_sell&bytes32_sellHash&(address_trader&uint8_side&address_matchingPolicy&address_collection&uint256_tokenId&uint256_amount&address_paymentToken&uint256_price&uint256_listingTime&uint256_expirationTime&(uint16_rate&address_recipient)[]_fees&uint256_salt&bytes_extraParams)_buy&bytes32_buyHash)"
+  # so when we come across the ) char, we are taking the wrong param name
  # "0x000000000000Ad05Ccc4F10045630fb830B95127
 # &&(
 # OrdersMatched

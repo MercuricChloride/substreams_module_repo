@@ -63,29 +63,71 @@ fn is_eof(s: &str, pos: usize) -> bool {
 impl EventSignature {
     // takes in an input string of the form,
     // (type_indexed?_name&(type_indexed_name))
-    fn parse_params(input_string: &str, mut pos: usize) -> (usize, Vec<EventParam>, Option<String>) {
+    fn parse_params<'a>(input_string: &'a str, mut pos: usize, event_name: &'a mut Option<String>) -> (usize, Vec<EventParam>, &'a mut Option<String>) {
         let mut params: Vec<EventParam> = vec![];
         let mut current_word = String::new();
-        let mut event_name = String::new();
+        //let mut event_name: Option<String> = None;
 
         while !is_eof(input_string, pos) {
             let token = get_token(input_string, pos).unwrap();
             pos += 1;
 
             match token {
+                ']' => {
+                    if current_word.contains("[") {
+                        let mut num: Option<String> = None;
+                        let mut last_token = current_word.pop().unwrap();
+
+                        while last_token != '[' {
+                            num = Some(format!("{}{}", last_token, num.unwrap_or("".to_string())));
+                            last_token = current_word.pop().unwrap();
+                        }
+
+
+                        let param = params.pop().unwrap();
+
+                        if let Some(num) = num {
+                        params.push(
+                            EventParam {
+                                param_type: EventParamType::Array(Box::new(param.param_type), Some(num.parse::<usize>().unwrap())),
+                                indexed: param.indexed,
+                                param_name: param.param_name,
+                            }
+                        );
+                        } else {
+                        params.push(
+                            EventParam {
+                                param_type: EventParamType::Array(Box::new(param.param_type), None),
+                                indexed: param.indexed,
+                                param_name: param.param_name,
+                            }
+                        );
+                        }
+                    }
+                }
                 '&' => {
                     if !current_word.is_empty() {
                         let param = EventParam::from_str(&current_word);
+                        // if we can parse it into a type then it's a param
                         if let Some(param_name) = param {
                             params.push(param_name);
                         } else {
-                            event_name = current_word;
+                            // if we can't parse it into a type then it's the event name
+                            // unless it starts with an underscore, which means its a tuples name and we should ignore it
+                            if !current_word.starts_with("_") {
+                                //println(&format!("setting event name to: {:?}", current_word));
+                                *event_name = Some(current_word);
+                            }
                         }
                         current_word = String::new();
                     }
                 }
                 '(' => {
-                    let (next_pos, list,_) = Self::parse_params(input_string, pos);
+                    // if the params are empty, its the start of the event signature
+                    if params.is_empty() {
+                        continue;
+                    }
+                    let (next_pos, list,_) = Self::parse_params(input_string, pos, event_name);
                     pos = next_pos;
                     params.push(
                         EventParam {
@@ -104,7 +146,7 @@ impl EventSignature {
                             panic!("Invalid event param: {}", current_word);
                         }
                     }
-                    return (pos, params, None);
+                    return (pos, params, event_name);
                 }
                 _ => {
                     current_word.push(token);
@@ -112,12 +154,29 @@ impl EventSignature {
             }
         }
 
-        (pos, params, Some(event_name))
+        if !current_word.is_empty() {
+            println(&format!("params: {:?}", params));
+            println(&format!("remaining word{}", current_word));
+            let param = EventParam::from_str(&current_word);
+            if let Some(param_name) = param {
+                params.push(param_name);
+            } else {
+                // if we can't parse it into a type then it's the event name
+                // unless it starts with an underscore, which means its a tuples name and we should ignore it
+                if !current_word.starts_with("_") {
+                    println(&format!("current_word: {:?}", current_word));
+                    *event_name = Some(current_word);
+                }
+            }
+        }
+
+        (pos, params, event_name)
     }
     /// Takes an input string of the form,
     /// (EventName&type_indexed?_name&type_indexed_name)
     pub fn from_str(input_string: &str) -> EventSignature {
-        let (_, params, event_name) = EventSignature::parse_params(input_string, 0);
+        let mut event_name = None;
+        let (_, params, event_name) = EventSignature::parse_params(input_string, 0, &mut event_name);
 
         let event_name = if let Some(event_name) = event_name {
             event_name
@@ -126,7 +185,7 @@ impl EventSignature {
         };
 
 
-        EventSignature { event_name, params }
+        EventSignature { event_name: event_name.to_string(), params }
     }
 
     pub fn get_event_signature(&self) -> String {
@@ -135,7 +194,14 @@ impl EventSignature {
             self.event_name,
             self.params
                 .iter()
-                .map(|p| p.param_type.to_string())
+                .map(|p| {
+                    p.param_type.to_string()
+                    // if p.indexed {
+                    //     //format!("indexed {}", p.param_type.to_string())
+                    // } else {
+                    //     p.param_type.to_string()
+                    // }
+                })
                 .collect::<Vec<_>>()
                 .join(",")
         );
@@ -174,7 +240,8 @@ impl EventParam {
     pub fn from_str(str: &str) -> Option<Self> {
         let mut split = str.split("_").peekable();
 
-        let param_type = match split.next() {
+        let type_signature = split.next();
+        let mut param_type = match type_signature {
             Some(s) if s.starts_with("string") => EventParamType::String,
             Some(s) if s.starts_with("bytes") => {
                 if let Ok(size) = s[5..].parse::<usize>() {
@@ -200,6 +267,13 @@ impl EventParam {
             }
             _ => return None,
         };
+
+        let re = Regex::new(r"\[(\d*)\]$").unwrap();
+
+        if let Ok(Some(captures)) = re.captures(type_signature.unwrap()) {
+            let size = captures.get(1).map_or(Ok(None), |m| m.as_str().parse::<usize>().map(Some)).unwrap();
+            param_type = EventParamType::Array(Box::new(param_type), size);
+        }
 
         let indexed = match split.peek() {
             Some(&"indexed") => true,
@@ -231,7 +305,8 @@ pub enum EventParamType {
     Address,
     Tuple(Vec<EventParam>),
     Uint(usize),
-    Int(usize)
+    Int(usize),
+    Array(Box<EventParamType>, Option<usize>),
 }
 
 impl ToString for EventParamType {
@@ -243,6 +318,13 @@ impl ToString for EventParamType {
             EventParamType::Address => "address".to_string(),
             EventParamType::Uint(size) => format!("uint{}", size * 8),
             EventParamType::Int(size) => format!("int{}", size * 8),
+            EventParamType::Array(param_type, size) => {
+                if let Some(size) = size {
+                    return format!("{}[{}]", param_type.to_string(), size);
+                } else {
+                    return format!("{}[]", param_type.to_string());
+                }
+            }
             EventParamType::Tuple(params) => {
                 format!("({})", params.iter().map(|p| p.param_type.to_string()).collect::<Vec<_>>().join(","))
             }
@@ -252,7 +334,7 @@ impl ToString for EventParamType {
 
 impl EventParamType {
     pub fn from_str(value: &str) -> Self {
-        match value {
+        let normal_type = match value {
                 s if s.starts_with("string") => EventParamType::String,
                 s if s.starts_with("bytes") => {
                     if let Ok(size) = s[5..].parse::<usize>() {
@@ -280,7 +362,16 @@ impl EventParamType {
                     EventParamType::Tuple(EventSignature::from_str(s).params)
                 }
                 _ => panic!("Invalid event param type {:?}", value),
-           }
+           };
+
+        let re = Regex::new(r"\[(\d*)\]$").unwrap();
+
+        if let Ok(Some(captures)) = re.captures(value) {
+            let size = captures.get(1).map_or(None, |m| m.as_str().parse::<usize>().ok());
+            EventParamType::Array(Box::new(normal_type), size)
+        } else {
+            normal_type
+        }
     }
 }
 
@@ -370,6 +461,9 @@ pub fn log_to_hotdog(
                 EventParamType::Int(_) => {
                     ValueEnum::StringValue(BigInt::from_signed_bytes_be(value).to_string())
                 }
+                EventParamType::Array(_, _) => {
+                    unimplemented!("Indexed array types are not supported yet, go bug @blind_nabler to fix this")
+                }
                 EventParamType::Tuple(_) => {
                     unimplemented!("Indexed tuple types are not supported yet, go bug @blind_nabler to fix this")
                 }
@@ -380,11 +474,11 @@ pub fn log_to_hotdog(
         } else {
             let data = &data[data_index..];
 
-            let size = get_param_size(param, &data);
+            let size = get_param_size(&param.param_type, &data);
 
             let bytes = &data[..size];
 
-            let decoded_value = get_decoded_param(param, bytes);
+            let decoded_value = get_decoded_param(&param.param_type, bytes);
 
             map.insert(param.param_name.clone(), decoded_value);
 
@@ -397,8 +491,8 @@ pub fn log_to_hotdog(
     hashmap_to_hotdog(map)
 }
 
-fn get_decoded_param(param: &EventParam, bytes: &[u8]) -> ValueEnum {
-    match &param.param_type {
+fn get_decoded_param(param_type: &EventParamType, bytes: &[u8]) -> ValueEnum {
+    match &param_type {
         EventParamType::String => {
             let value = from_utf8(bytes).unwrap();
             ValueEnum::StringValue(value.to_string())
@@ -414,17 +508,27 @@ fn get_decoded_param(param: &EventParam, bytes: &[u8]) -> ValueEnum {
         EventParamType::Tuple(params) => {
             let mut map: HashMap<String, ValueStruct> = HashMap::new();
             for param in params {
-                let size = get_param_size(param, bytes);
-                let value = get_decoded_param(param, &bytes[..size]);
+                let size = get_param_size(&param.param_type, bytes);
+                let value = get_decoded_param(&param.param_type, &bytes[..size]);
                 map.insert(param.param_name.clone(), ValueStruct { value: Some(value) });
             }
             ValueEnum::MapValue(Map { keys: map })
         }
+        EventParamType::Array(param_type, _) => {
+            let size_per_type = get_param_size(param_type, bytes);
+            // using this hashmap as an array because of our hotdog type
+            let mut array = HashMap::new();
+            for i in 0..bytes.len() / size_per_type {
+                let value = get_decoded_param(param_type, &bytes[i * size_per_type..]);
+                array.insert(i.to_string(), ValueStruct { value: Some(value) });
+            }
+            ValueEnum::MapValue(Map { keys: array })
+        }
     }
 }
 
-fn get_param_size(param: &EventParam, data: &[u8]) -> usize {
-    match &param.param_type {
+fn get_param_size(param_type: &EventParamType, data: &[u8]) -> usize {
+    match param_type {
         EventParamType::String => {
             // the first 32 bytes contain the length
             let byte_string_size = &data[..32];
@@ -439,7 +543,17 @@ fn get_param_size(param: &EventParam, data: &[u8]) -> usize {
         EventParamType::Address => 20 as usize,
         EventParamType::Uint(size) | EventParamType::Int(size) => *size,
         EventParamType::Tuple(params) => {
-            params.iter().map(|p| get_param_size(p, data)).sum()
+            params.iter().map(|p| get_param_size(&p.param_type, data)).sum()
+        }
+        EventParamType::Array(param_type, size) => {
+            if let Some(size) = size {
+                size * get_param_size(param_type, data)
+            } else {
+                // the first 32 bytes contain the length
+                let byte_string_size = &data[..32];
+                let size = usize::from_be_bytes(byte_string_size.try_into().unwrap());
+                size * get_param_size(param_type, data)
+            }
         }
     }
 }

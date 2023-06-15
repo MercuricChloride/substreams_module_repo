@@ -3,7 +3,7 @@ mod pb;
 
 use std::collections::HashMap;
 
-use substreams::{pb::substreams::store_delta::Operation, store::{StoreAddBigInt, StoreAdd, StoreGetBigInt, StoreGet}};
+use substreams::{pb::substreams::store_delta::Operation, store::{StoreAddBigInt, StoreAdd, StoreGetBigInt, StoreGet}, log::println};
 use helpers::{format_hex, hashmap_to_hotdog, hotdog_to_hashmap};
 use pb::{soulbound_modules::v1::{
     Foo, Hotdog, Hotdogs, value::Value as ValueEnum, Value as ValueStruct
@@ -78,8 +78,8 @@ pub fn map_events(param: String, blk: eth::Block) -> Result<Hotdogs, SubstreamEr
     let contract_address = split.first().unwrap().to_lowercase();
 
     let event_signature = EventSignature::from_str(*split.last().unwrap());
-    panic!("event_signature: {:?}", event_signature.get_event_signature());
-    //panic!("event_signature: {:?}", format_hex(&event_signature.get_topic_0()));
+    println(format!("event_signature: {:?}", event_signature.get_event_signature()));
+    panic!("event_signature: {:?}", format_hex(&event_signature.get_topic_0()));
     let block_hash = format_hex(&blk.hash);
     let block_number = blk.number;
     let block_timestamp = blk
