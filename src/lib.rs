@@ -1,10 +1,10 @@
 pub mod helpers;
 mod pb;
 
-use std::collections::HashMap;
+use std::{collections::HashMap, str::FromStr};
 
 use substreams::{pb::substreams::store_delta::Operation, store::{StoreAddBigInt, StoreAdd, StoreGetBigInt, StoreGet}, log::println};
-use helpers::{format_hex, hashmap_to_hotdog, hotdog_to_hashmap};
+use helpers::{format_hex, hashmap_to_hotdog, hotdog_to_hashmap, param_value_to_value_enum};
 use pb::{soulbound_modules::v1::{
     Foo, Hotdog, Hotdogs, value::Value as ValueEnum, Value as ValueStruct
 }, sf::substreams::v1::module::input::Store};
@@ -78,8 +78,7 @@ pub fn map_events(param: String, blk: eth::Block) -> Result<Hotdogs, SubstreamEr
     let contract_address = split.first().unwrap().to_lowercase();
 
     let event_signature = EventSignature::from_str(*split.last().unwrap());
-    println(format!("event_signature: {:?}", event_signature.get_event_signature()));
-    panic!("event_signature: {:?}", format_hex(&event_signature.get_topic_0()));
+    println(format!("event_signature: {:?}", format_hex(&event_signature.get_topic_0())));
     let block_hash = format_hex(&blk.hash);
     let block_number = blk.number;
     let block_timestamp = blk
@@ -110,6 +109,63 @@ pub fn map_events(param: String, blk: eth::Block) -> Result<Hotdogs, SubstreamEr
         .collect();
 
     Ok(Hotdogs { hotdogs })
+}
+
+#[substreams::handlers::map]
+pub fn map_abi_events(param: String, blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
+    let split: Vec<&str> = param.split("&&").collect();
+
+    let contract_address = split.first().unwrap().to_lowercase();
+
+    println(format!("contract_address: {:?}", contract_address));
+
+    let abi_json = split.last().unwrap();
+
+    let abi: ethereum_abi::Abi = serde_json::from_str(abi_json).unwrap();
+
+    let hotdogs: Vec<Hotdog> = blk
+        .logs()
+        .filter_map(|log| {
+            let emitter = format_hex(log.address());
+            if emitter != contract_address {
+                return None;
+            }
+
+
+            let topics = &log.topics().iter().map(|topic| {
+                primitive_types::H256::from_slice(&topic[..])
+            }).collect::<Vec<_>>();
+
+            if let Ok((event, params)) = &abi.decode_log_from_slice(&topics[..] , log.data()) {
+                let decoded_params = params.reader().by_index;
+                let mut map: HashMap<String, ValueEnum> = HashMap::new();
+                map.insert("hotdog_name".to_string(), ValueEnum::StringValue(event.name.clone()));
+
+                for kv in decoded_params {
+                    let param = &kv.param;
+                    let value = param_value_to_value_enum(&kv.value);
+                    map.insert(param.name.clone(), value);
+                }
+
+                Some(hashmap_to_hotdog(map))
+            } else {
+                None
+            }
+            // if event_signature.matches_log(&log) && emitter == contract_address {
+            //     Some(log_to_hotdog(
+            //         &log,
+            //         &event_signature,
+            //         block_number,
+            //         &block_timestamp,
+            //         &block_hash,
+            //     ))
+            // } else {
+            //     None
+            // }
+        })
+        .collect();
+
+    Ok(Hotdogs{ hotdogs })
 }
 
 #[substreams::handlers::store]

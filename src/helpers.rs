@@ -1,4 +1,5 @@
 use std::{collections::HashMap, ops::Mul, str::from_utf8};
+use ethereum_abi::Value;
 use fancy_regex::Regex;
 
 use crate::pb::soulbound_modules::v1::{Hotdog, Hotdogs, Map};
@@ -83,7 +84,6 @@ impl EventSignature {
                             last_token = current_word.pop().unwrap();
                         }
 
-
                         let param = params.pop().unwrap();
 
                         if let Some(num) = num {
@@ -117,6 +117,16 @@ impl EventSignature {
                             if !current_word.starts_with("_") {
                                 //println(&format!("setting event name to: {:?}", current_word));
                                 *event_name = Some(current_word);
+                            } else {
+                                // otherwise it is the name of the last param
+                                let param = params.pop().unwrap();
+                                params.push(
+                                    EventParam {
+                                        param_type: param.param_type,
+                                        indexed: param.indexed,
+                                        param_name: current_word.trim_start_matches("_").to_string(),
+                                    }
+                                );
                             }
                         }
                         current_word = String::new();
@@ -433,127 +443,299 @@ pub fn log_to_hotdog(
     block_timestamp: &String,
     block_hash: &String,
 ) -> Hotdog {
-    let mut map = HashMap::new();
+    todo!("finish this");
+    // let mut map = HashMap::new();
 
-    let topics = log.topics();
-    let data = log.data();
+    // let topics = log.topics();
+    // let data = log.data();
+    // println(format!("data size: {:?}", data.len()));
 
-    let mut topic_index = 1;
-    let mut data_index = 0;
+    // let mut topic_index = 1;
+    // let mut data_index = 0;
 
-    add_tx_meta(&mut map, log, block_timestamp, block_hash, block_number);
+    // add_tx_meta(&mut map, log, block_timestamp, block_hash, block_number);
 
-    for param in event_signature.params.iter() {
-        if param.indexed {
-            // the bytes value
-            let value = &topics[topic_index];
+    // println(format!("param count: {}", event_signature.params.len()));
 
-            let decoded_value = match param.param_type {
-                EventParamType::String => {
-                    let value = from_utf8(&value).unwrap();
-                    ValueEnum::StringValue(value.to_string())
-                }
-                EventParamType::Bytes(_) => ValueEnum::StringValue(format_hex(&value)),
-                EventParamType::Address => ValueEnum::StringValue(format_hex(&value[12..])),
-                EventParamType::Uint(_) => {
-                    ValueEnum::StringValue(BigInt::from_unsigned_bytes_be(value).to_string())
-                }
-                EventParamType::Int(_) => {
-                    ValueEnum::StringValue(BigInt::from_signed_bytes_be(value).to_string())
-                }
-                EventParamType::Array(_, _) => {
-                    unimplemented!("Indexed array types are not supported yet, go bug @blind_nabler to fix this")
-                }
-                EventParamType::Tuple(_) => {
-                    unimplemented!("Indexed tuple types are not supported yet, go bug @blind_nabler to fix this")
-                }
-            };
-            map.insert(param.param_name.clone(), decoded_value);
+    // for param in event_signature.params.iter() {
+    //     if param.indexed {
+    //         println(format!("param is indexed: {:?}", param.param_name));
+    //         // the bytes value
+    //         let value = &topics[topic_index];
 
-            topic_index += 1;
-        } else {
-            let data = &data[data_index..];
+    //         let decoded_value = match param.param_type {
+    //             EventParamType::String => {
+    //                 let value = from_utf8(&value).unwrap();
+    //                 ValueEnum::StringValue(value.to_string())
+    //             }
+    //             EventParamType::Bytes(_) => ValueEnum::StringValue(format_hex(&value)),
+    //             EventParamType::Address => ValueEnum::StringValue(format_hex(&value[12..])),
+    //             EventParamType::Uint(_) => {
+    //                 ValueEnum::StringValue(BigInt::from_unsigned_bytes_be(value).to_string())
+    //             }
+    //             EventParamType::Int(_) => {
+    //                 ValueEnum::StringValue(BigInt::from_signed_bytes_be(value).to_string())
+    //             }
+    //             EventParamType::Array(_, _) => {
+    //                 unimplemented!("Indexed array types are not supported yet, go bug @blind_nabler to fix this")
+    //             }
+    //             EventParamType::Tuple(_) => {
+    //                 unimplemented!("Indexed tuple types are not supported yet, go bug @blind_nabler to fix this")
+    //             }
+    //         };
 
-            let size = get_param_size(&param.param_type, &data);
+    //         map.insert(param.param_name.clone(), decoded_value);
 
-            let bytes = &data[..size];
+    //         topic_index += 1;
+    //     } else {
 
-            let decoded_value = get_decoded_param(&param.param_type, bytes);
+    //         if is_dynamic(&param.param_type) {
+    //             println(format!("dynamic param: {:?}", param.param_name));
+    //             // ethereum event data for dynamic types is weird
+    //             // the first 32 bytes is the position of the actual data
+    //             let dynamic_offset = &data[data_index..data_index + 32];
+    //             println(format!("dynamic_offset: {}", format_hex(dynamic_offset)));
+    //             // BigInt containing the offset in bytes
+    //             let dynamic_location = BigInt::from_unsigned_bytes_be(dynamic_offset);
+    //             // now we need to convert that to a usize
+    //             let dynamic_location = usize::from_str_radix(&dynamic_location.to_string(), 10).unwrap();
+    //             println(format!("dynamic_location: {}", dynamic_location));
 
-            map.insert(param.param_name.clone(), decoded_value);
+    //             //let data = &data[dynamic_location..];
+    //             let size = get_param_size(&param.param_type, &data, dynamic_location);
+    //             let start_index = dynamic_location + 32;
+    //             let end_index = start_index + size;
+    //             let decoded_value = get_decoded_param(&param.param_type, data, start_index, end_index);
+    //             println(format!("decoded_value: {:?}", decoded_value));
+    //             map.insert(param.param_name.clone(), decoded_value);
+    //         } else {
+    //             println(format!("static param: {:?}", param.param_name));
+    //             let data = &data[data_index..];
 
-            data_index += size;
-        }
-    }
+    //             let size = get_param_size(&param.param_type, &data);
 
-    map.insert("hotdog_name".to_string(), ValueEnum::StringValue(event_signature.event_name.clone()));
+    //             let padding = 32 - size;
 
-    hashmap_to_hotdog(map)
+    //             // NOTE Am I off by one byte here?
+    //             let bytes = &data[padding..32];
+
+    //             let decoded_value = get_decoded_param(&param.param_type, bytes);
+    //             println(format!("decoded_value: {:?}", decoded_value));
+
+    //             map.insert(param.param_name.clone(), decoded_value);
+    //         }
+
+    //         data_index += 32;
+    //         //data_index += size;
+    //     }
+    // }
+
+    // map.insert("hotdog_name".to_string(), ValueEnum::StringValue(event_signature.event_name.clone()));
+
+    // hashmap_to_hotdog(map)
 }
 
-fn get_decoded_param(param_type: &EventParamType, bytes: &[u8]) -> ValueEnum {
-    match &param_type {
-        EventParamType::String => {
-            let value = from_utf8(bytes).unwrap();
-            ValueEnum::StringValue(value.to_string())
-        }
-        EventParamType::Bytes(_) => ValueEnum::StringValue(format_hex(bytes)),
-        EventParamType::Address => ValueEnum::StringValue(format_hex(bytes)),
-        EventParamType::Uint(_) => {
-            ValueEnum::StringValue(BigInt::from_unsigned_bytes_be(bytes).to_string())
-        }
-        EventParamType::Int(_) => {
-            ValueEnum::StringValue(BigInt::from_signed_bytes_be(bytes).to_string())
-        }
-        EventParamType::Tuple(params) => {
-            let mut map: HashMap<String, ValueStruct> = HashMap::new();
-            for param in params {
-                let size = get_param_size(&param.param_type, bytes);
-                let value = get_decoded_param(&param.param_type, &bytes[..size]);
-                map.insert(param.param_name.clone(), ValueStruct { value: Some(value) });
-            }
-            ValueEnum::MapValue(Map { keys: map })
-        }
-        EventParamType::Array(param_type, _) => {
-            let size_per_type = get_param_size(param_type, bytes);
-            // using this hashmap as an array because of our hotdog type
-            let mut array = HashMap::new();
-            for i in 0..bytes.len() / size_per_type {
-                let value = get_decoded_param(param_type, &bytes[i * size_per_type..]);
-                array.insert(i.to_string(), ValueStruct { value: Some(value) });
-            }
-            ValueEnum::MapValue(Map { keys: array })
-        }
-    }
+fn get_param_offset(event_bytes: &[u8], data_index: usize) -> usize {
+    let offset_bytes = &event_bytes[data_index..data_index + 32];
+    let offset = BigInt::from_unsigned_bytes_be(offset_bytes);
+    usize::from_str_radix(&offset.to_string(), 10).unwrap()
 }
 
-fn get_param_size(param_type: &EventParamType, data: &[u8]) -> usize {
-    match param_type {
+// this should be our main entrypoint for decoding params
+// so when we iterate over the params in the event signature
+// we can just call this function and it will return the decoded value
+fn decode_param(event_bytes: &[u8], param_type: &EventParamType, data_index: usize) -> ValueEnum {
+    todo!("finish this");
+    // match &param_type {
+    //     EventParamType::String => {
+    //         // the actual location of the string in the event data
+    //         let param_offset = get_param_offset(event_bytes, data_index);
+    //         // gets the length of the string in bytes
+    //         let param_length = get_param_size(&param_type);
+    //         // the string data starts at the offset + 32 bytes (the first 32 bytes is the offset)
+    //         let string_data_start = param_offset + 32;
+    //         let value = from_utf8(&event_bytes[param_offset..param_offset + param_length]).unwrap();
+    //     }
+    // }
+    // //if is_dynamic(param_type) {
+    //     // get the size of the dynamic param
+    // //} else {
+    //     // get the size of the static param
+    // //}
+}
+
+fn get_decoded_param(param_type: &EventParamType, bytes: &[u8], start_index: usize, stop_index: usize) -> ValueEnum {
+    todo!("finish this");
+    // match &param_type {
+    //     EventParamType::String => {
+    //         let value = from_utf8(&bytes[start_index..stop_index]).unwrap();
+    //         ValueEnum::StringValue(value.to_string())
+    //     }
+    //     EventParamType::Bytes(_) => ValueEnum::StringValue(format_hex(&bytes[start_index..stop_index])),
+    //     // NOTE, MAYBE?
+    //     EventParamType::Address => ValueEnum::StringValue(format_hex(&bytes[start_index+12..stop_index])),
+    //     EventParamType::Uint(_) => {
+    //         ValueEnum::StringValue(BigInt::from_unsigned_bytes_be(&bytes[start_index..stop_index]).to_string())
+    //     }
+    //     EventParamType::Int(_) => {
+    //         ValueEnum::StringValue(BigInt::from_signed_bytes_be(&bytes[start_index..stop_index]).to_string())
+    //     }
+    //     EventParamType::Tuple(params) => {
+    //         let mut map: HashMap<String, ValueStruct> = HashMap::new();
+    //         for (i, param) in params.iter().enumerate() {
+    //             let mut size = get_param_size(&param.param_type, bytes, i*32);
+    //             if size < 32 {
+    //                 // we are doing this because ethereum doesn't pack types in event logs, so all things will occupy a 32 byte chunk
+    //                 size = 32;
+    //             };
+    //             let start_index = i*32;
+    //             let end_index = start_index + size;
+    //             let value = get_decoded_param(&param.param_type, &bytes, start_index, end_index);
+    //             map.insert(param.param_name.clone(), ValueStruct { value: Some(value) });
+    //         }
+    //         ValueEnum::MapValue(Map { keys: map })
+    //     }
+    //     EventParamType::Array(param_type, _) => {
+    //         let mut size_per_type = get_param_size(param_type, bytes, start_index);
+    //         if size_per_type < 32 {
+    //             // we are doing this because ethereum doesn't pack types in event logs, so all things will occupy a 32 byte chunk
+    //             size_per_type = 32;
+    //         };
+
+    //         // using this hashmap as an array because of our hotdog type
+    //         let mut array = HashMap::new();
+    //         for i in 0..bytes.len() / size_per_type {
+    //             let start_index = i * size_per_type;
+    //             let end_index = start_index + size_per_type;
+    //             let value = get_decoded_param(param_type, bytes, start_index, end_index);
+    //             array.insert(i.to_string(), ValueStruct { value: Some(value) });
+    //         }
+    //         ValueEnum::MapValue(Map { keys: array })
+    //     }
+    // }
+}
+
+/// The data param should be the entire event data, not just a slice of it
+fn get_param_size(param_type: &EventParamType, data: &[u8], start_index: usize) -> usize {
+    println(format!("getting size of : {:?}", param_type));
+    let size = match param_type {
         EventParamType::String => {
-            // the first 32 bytes contain the length
-            let byte_string_size = &data[..32];
+            // the first 32 bytes contain the offset
+            let offset = &data[start_index..32];
+            // BigInt containing the offset in bytes
+            let offset = BigInt::from_unsigned_bytes_be(offset);
+            // now we need to convert that to a usize
+            let offset = usize::from_str_radix(&offset.to_string(), 10).unwrap();
+
+            // NOTE This was 64, shouldn't it be 32?
+            let byte_string_size = &data[offset..32];
             usize::from_be_bytes(byte_string_size.try_into().unwrap())
         }
         EventParamType::Bytes(Some(size)) => *size,
         EventParamType::Bytes(None) => {
-            // the first 32 bytes contain the length
-            let byte_string_size = &data[..32];
+            // the first 32 bytes contain the offset
+            let offset = &data[start_index..32];
+            // BigInt containing the offset in bytes
+            let offset = BigInt::from_unsigned_bytes_be(offset);
+            // now we need to convert that to a usize
+            let offset = usize::from_str_radix(&offset.to_string(), 10).unwrap();
+
+            let byte_string_size = &data[offset..32];
             usize::from_be_bytes(byte_string_size.try_into().unwrap())
         }
-        EventParamType::Address => 20 as usize,
-        EventParamType::Uint(size) | EventParamType::Int(size) => *size,
         EventParamType::Tuple(params) => {
-            params.iter().map(|p| get_param_size(&p.param_type, data)).sum()
+            let mut offset = 0;
+            for param in params {
+                let param_size = get_param_size(&param.param_type, &data, start_index + offset);
+                if param_size < 32 {
+                    // we are doing this because ethereum doesn't pack types in event logs, so all things will occupy a 32 byte chunk
+                    offset += 32;
+                } else {
+                    offset += param_size;
+                }
+            }
+            offset
+            //params.iter().map(|p| get_param_size(&p.param_type, data)).sum()
         }
         EventParamType::Array(param_type, size) => {
             if let Some(size) = size {
-                size * get_param_size(param_type, data)
+                // if the array is sized, we can just multiply the size by the param size
+                size * get_param_size(param_type, data, start_index)
             } else {
-                // the first 32 bytes contain the length
-                let byte_string_size = &data[..32];
-                let size = usize::from_be_bytes(byte_string_size.try_into().unwrap());
-                size * get_param_size(param_type, data)
+                // the first 32 bytes contain the offset
+                let offset = &data[start_index..32];
+                let offset = BigInt::from_unsigned_bytes_be(offset);
+                let offset = usize::from_str_radix(&offset.to_string(), 10).unwrap();
+
+                // the first 32 bytes from the offset contain the length
+                let byte_string_size = &data[offset..32];
+                println(format!("array length in hex: {}", format_hex(byte_string_size)));
+                let size = BigInt::from_unsigned_bytes_be(byte_string_size);
+                println(format!("array length: {}", size.to_string()));
+                let size = usize::from_str_radix(&size.to_string(), 10).unwrap();
+                let param_size = get_param_size(param_type, &data, offset+32);
+                if param_size < 32 {
+                    // we are doing this because ethereum doesn't pack types in event logs, so all things will occupy a 32 byte chunk
+                    size * 32
+                } else {
+                    size * param_size
+                }
             }
+        }
+        EventParamType::Address => 20 as usize,
+        EventParamType::Uint(size) | EventParamType::Int(size) => *size,
+    };
+    println(format!("size: {}", size));
+    size
+}
+
+fn is_dynamic(param_type: &EventParamType) -> bool {
+    match param_type {
+        EventParamType::Array(_, None) => true,
+        EventParamType::String => true,
+        EventParamType::Bytes(None) => true,
+        EventParamType::Tuple(params) => params.iter().any(|p| is_dynamic(&p.param_type)),
+        _ => false
+    }
+}
+
+pub fn param_value_to_value_enum(value: &Value) -> ValueEnum {
+    match value {
+        Value::Uint(uint, _) => ValueEnum::StringValue(uint.to_string()),
+        Value::Int(int, _) => ValueEnum::StringValue(int.to_string()),
+        Value::Address(address) => ValueEnum::StringValue(address.to_string()),
+        Value::Bool(boolean) => ValueEnum::StringValue(boolean.to_string()),
+        Value::FixedBytes(bytes) => ValueEnum::StringValue(format_hex(&bytes)),
+        Value::FixedArray(array, _) => {
+            let mut map = HashMap::new();
+            for i in 0..array.len() {
+                let value = &array[i];
+                map.insert(i.to_string(), ValueStruct { value: Some(param_value_to_value_enum(&value))});
+            }
+            ValueEnum::MapValue(
+                Map { keys: map }
+            )
+        }
+        Value::String(string) => ValueEnum::StringValue(string.to_string()),
+        Value::Bytes(bytes) => ValueEnum::StringValue(format_hex(&bytes)),
+        Value::Array(array, _) => {
+            let mut map = HashMap::new();
+            for i in 0..array.len() {
+                let value = &array[i];
+                map.insert(i.to_string(), ValueStruct { value: Some(param_value_to_value_enum(&value))});
+            }
+            ValueEnum::MapValue(
+                Map { keys: map }
+            )
+        }
+        Value::Tuple(tuple_arr) => {
+            let mut map = HashMap::new();
+            for (name, value) in tuple_arr.iter() {
+                map.insert(name.to_string(), ValueStruct { value: Some(param_value_to_value_enum(&value))});
+            }
+            ValueEnum::MapValue(
+                Map { keys: map }
+            )
         }
     }
 }
