@@ -165,6 +165,22 @@ pub fn map_abi_events(param: String, blk: eth::Block) -> Result<Hotdogs, Substre
     Ok(Hotdogs{ hotdogs })
 }
 
+// Takes in a param string of the form
+// Transfer&&Approval
+#[substreams::handlers::map]
+fn filter_events(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
+    let filtered_names: Vec<&str> = param.split("&&").collect::<Vec<_>>();
+    let mut filtered_hotdogs: Vec<Hotdog> = vec![];
+    for hotdog in hotdogs.hotdogs {
+        if filtered_names.contains(&hotdog.hotdog_name.as_str()) {
+            filtered_hotdogs.push(hotdog.clone());
+        }
+    }
+    Ok(Hotdogs {
+        hotdogs: filtered_hotdogs
+    })
+}
+
 #[substreams::handlers::store]
 pub fn store_unique_users(hotdogs: Hotdogs, s: StoreSetIfNotExistsBigInt) {
     for hotdog in hotdogs.hotdogs {
