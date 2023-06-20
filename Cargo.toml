@@ -16,7 +16,7 @@ prost-types = "0.11"
 substreams = "0.5"
 substreams-ethereum = "0.9"
 substreams-database-change = "1.0.0"
-substreams-entity-change = "1.1"
+substreams-entity-change = "1.2"
 chrono = { version = "0.4", features = [ "std" ], default-features = false }
 sha3 = "0.10.8"
 regex = "1.8.4"

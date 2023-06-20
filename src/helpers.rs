@@ -1,6 +1,8 @@
+use std::str::FromStr;
 use std::{collections::HashMap, ops::Mul, str::from_utf8};
 use ethereum_abi::Value;
 use fancy_regex::Regex;
+use substreams_entity_change::tables::Tables;
 
 use crate::pb::soulbound_modules::v1::{Hotdog, Hotdogs, Map};
 use crate::pb::soulbound_modules::v1::{value::Value as ValueEnum, Value as ValueStruct};
@@ -55,6 +57,10 @@ pub fn add_tx_meta(
     block_number: u64,
 ) {
     map.insert(
+        "tx_log_index".to_string(),
+        ValueEnum::StringValue(log.index().to_string()),
+    );
+    map.insert(
         "tx_hash".to_string(),
         ValueEnum::StringValue(format_hex(&log.receipt.transaction.hash)),
     );
@@ -102,97 +108,32 @@ pub fn log_to_hotdog(
     block_number: u64,
     block_timestamp: &String,
     block_hash: &String,
-) -> Hotdog {
-    todo!("finish this");
-    // let mut map = HashMap::new();
+    abi: &ethereum_abi::Abi,
+) -> Option<Hotdog> {
+    let mut map = HashMap::new();
 
-    // let topics = log.topics();
-    // let data = log.data();
-    // println(format!("data size: {:?}", data.len()));
+    let topics = &log.topics().iter().map(|topic| {
+        primitive_types::H256::from_slice(&topic[..])
+    }).collect::<Vec<_>>();
 
-    // let mut topic_index = 1;
-    // let mut data_index = 0;
+    add_tx_meta(&mut map, log, block_timestamp, block_hash, block_number);
 
-    // add_tx_meta(&mut map, log, block_timestamp, block_hash, block_number);
+    if let Ok((event, params)) = &abi.decode_log_from_slice(&topics[..] , log.data()) {
+        let decoded_params = params.reader().by_index;
+        let mut map: HashMap<String, ValueEnum> = HashMap::new();
+        map.insert("hotdog_name".to_string(), ValueEnum::StringValue(event.name.clone()));
+        add_tx_meta(&mut map, &log, &block_timestamp, &block_hash, block_number);
 
-    // println(format!("param count: {}", event_signature.params.len()));
+        for kv in decoded_params {
+            let param = &kv.param;
+            let value = param_value_to_value_enum(&kv.value);
+            map.insert(param.name.clone(), value);
+        }
 
-    // for param in event_signature.params.iter() {
-    //     if param.indexed {
-    //         println(format!("param is indexed: {:?}", param.param_name));
-    //         // the bytes value
-    //         let value = &topics[topic_index];
-
-    //         let decoded_value = match param.param_type {
-    //             EventParamType::String => {
-    //                 let value = from_utf8(&value).unwrap();
-    //                 ValueEnum::StringValue(value.to_string())
-    //             }
-    //             EventParamType::Bytes(_) => ValueEnum::StringValue(format_hex(&value)),
-    //             EventParamType::Address => ValueEnum::StringValue(format_hex(&value[12..])),
-    //             EventParamType::Uint(_) => {
-    //                 ValueEnum::StringValue(BigInt::from_unsigned_bytes_be(value).to_string())
-    //             }
-    //             EventParamType::Int(_) => {
-    //                 ValueEnum::StringValue(BigInt::from_signed_bytes_be(value).to_string())
-    //             }
-    //             EventParamType::Array(_, _) => {
-    //                 unimplemented!("Indexed array types are not supported yet, go bug @blind_nabler to fix this")
-    //             }
-    //             EventParamType::Tuple(_) => {
-    //                 unimplemented!("Indexed tuple types are not supported yet, go bug @blind_nabler to fix this")
-    //             }
-    //         };
-
-    //         map.insert(param.param_name.clone(), decoded_value);
-
-    //         topic_index += 1;
-    //     } else {
-
-    //         if is_dynamic(&param.param_type) {
-    //             println(format!("dynamic param: {:?}", param.param_name));
-    //             // ethereum event data for dynamic types is weird
-    //             // the first 32 bytes is the position of the actual data
-    //             let dynamic_offset = &data[data_index..data_index + 32];
-    //             println(format!("dynamic_offset: {}", format_hex(dynamic_offset)));
-    //             // BigInt containing the offset in bytes
-    //             let dynamic_location = BigInt::from_unsigned_bytes_be(dynamic_offset);
-    //             // now we need to convert that to a usize
-    //             let dynamic_location = usize::from_str_radix(&dynamic_location.to_string(), 10).unwrap();
-    //             println(format!("dynamic_location: {}", dynamic_location));
-
-    //             //let data = &data[dynamic_location..];
-    //             let size = get_param_size(&param.param_type, &data, dynamic_location);
-    //             let start_index = dynamic_location + 32;
-    //             let end_index = start_index + size;
-    //             let decoded_value = get_decoded_param(&param.param_type, data, start_index, end_index);
-    //             println(format!("decoded_value: {:?}", decoded_value));
-    //             map.insert(param.param_name.clone(), decoded_value);
-    //         } else {
-    //             println(format!("static param: {:?}", param.param_name));
-    //             let data = &data[data_index..];
-
-    //             let size = get_param_size(&param.param_type, &data);
-
-    //             let padding = 32 - size;
-
-    //             // NOTE Am I off by one byte here?
-    //             let bytes = &data[padding..32];
-
-    //             let decoded_value = get_decoded_param(&param.param_type, bytes);
-    //             println(format!("decoded_value: {:?}", decoded_value));
-
-    //             map.insert(param.param_name.clone(), decoded_value);
-    //         }
-
-    //         data_index += 32;
-    //         //data_index += size;
-    //     }
-    // }
-
-    // map.insert("hotdog_name".to_string(), ValueEnum::StringValue(event_signature.event_name.clone()));
-
-    // hashmap_to_hotdog(map)
+        Some(hashmap_to_hotdog(map))
+    } else {
+        None
+    }
 }
 
 pub fn param_value_to_value_enum(value: &Value) -> ValueEnum {
@@ -232,6 +173,129 @@ pub fn param_value_to_value_enum(value: &Value) -> ValueEnum {
             ValueEnum::MapValue(
                 Map { keys: map }
             )
+        }
+    }
+}
+
+fn create_id(map: &HashMap<String, ValueEnum>) -> String {
+    let tx_hash = map.get("tx_hash").unwrap();
+    let tx_log_index = map.get("tx_log_index").unwrap();
+
+    // the id will be of form tx_hash-log_index
+    match (tx_hash, tx_log_index) {
+        (ValueEnum::StringValue(tx_hash), ValueEnum::StringValue(tx_log_index)) => {
+            format!("{}-{}", tx_hash, tx_log_index)
+        }
+        _ => panic!("tx_hash and tx_log_index must be strings")
+    }
+}
+
+pub fn update_tables(map: HashMap<String, ValueEnum>, tables: &mut Tables, table_name: Option<&String>) {
+    let id = create_id(&map);
+
+    let table_name = if let Some(table_name) = table_name {
+        table_name
+    } else {
+        let table_name = &map.get("hotdog_name").expect("hotdog_name must be present");
+
+        if let ValueEnum::StringValue(string_value) = table_name {
+            string_value
+        } else {
+            panic!("hotdog_name must be a string")
+        }
+    };
+
+    let row = tables.update_row(table_name, id);
+
+    let mut maps = vec![];
+    for (key, value) in &map {
+        if key == "hotdog_name" {
+            continue;
+        }
+        match value {
+            ValueEnum::Int64Value(int_value) => {
+                row.set(&key, *int_value);
+            },
+            ValueEnum::Uint64Value(uint_value) => {
+                row.set(&key, *uint_value);
+            },
+            ValueEnum::StringValue(string_value) => {
+                if let Ok(_) = BigInt::from_str(&string_value) {
+                    row.set_bigint(&key, &string_value);
+                } else {
+                    row.set(&key, string_value);
+                }
+            }
+            ValueEnum::MapValue(map_value) => {
+                maps.push((key, map_value));
+            }
+        };
+    }
+
+    for (_, map_value) in maps {
+        let map: HashMap<String, ValueEnum> = map_value.clone().into();
+
+        update_tables(map, tables, Some(table_name));
+    }
+}
+
+impl Into<ValueEnum> for ValueStruct {
+    fn into(self) -> ValueEnum {
+        match self.value {
+            Some(value) => value,
+            None => panic!("value must be present")
+        }
+    }
+}
+
+impl Into<HashMap<String, ValueEnum>> for Map {
+    fn into(self) -> HashMap<String, ValueEnum> {
+        self.keys.into_iter().map(|(key, value)| {
+            (key, value.into())
+        }).collect()
+    }
+}
+
+trait UpdateTables {
+    fn create_id(&self) -> String;
+    fn update_tables(&self, tables: &mut Tables);
+}
+
+impl UpdateTables for Hotdog {
+    fn create_id(&self) -> String {
+        let map = hotdog_to_hashmap(&self);
+        let tx_hash = map.get("tx_hash").unwrap();
+        let tx_log_index = map.get("tx_log_index").unwrap();
+
+        // the id will be of form tx_hash-log_index
+        match (tx_hash, tx_log_index) {
+            (ValueEnum::StringValue(tx_hash), ValueEnum::StringValue(tx_log_index)) => {
+                format!("{}-{}", tx_hash, tx_log_index)
+            }
+            _ => panic!("tx_hash and tx_log_index must be strings")
+        }
+    }
+
+    fn update_tables(&self, tables: &mut Tables) {
+        let map = hotdog_to_hashmap(&self);
+
+        let id = self.create_id();
+        let table_name = &self.hotdog_name;
+        let row = tables.create_row(table_name, id);
+
+        for (key, value) in map {
+            match value {
+                ValueEnum::Int64Value(int_value) => row.set(&key, int_value),
+                ValueEnum::Uint64Value(uint_value) => row.set(&key, uint_value),
+                ValueEnum::StringValue(string_value) => {
+                    if let Ok(_) = BigInt::from_str(&string_value) {
+                        row.set_bigint(&key, &string_value)
+                    } else {
+                        row.set(&key, string_value)
+                    }
+                }
+                ValueEnum::MapValue(map_value) => todo!(),
+            };
         }
     }
 }
