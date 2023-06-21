@@ -7,6 +7,9 @@ set blur_abi (cat ./blur_abi.json)
 set map_events_input (string join "\&\&" $bayc_address $bayc_abi $blur_address $blur_abi)
 set filter_events_input "Transfer\&\&Approval"
 
+echo $map_events_input
+exit 1
+
 if test -e substreams.yaml.bak
    # if the backup file exists, it means the script was interrupted so we need to restore the original file
    mv substreams.yaml.bak substreams.yaml
@@ -20,8 +23,9 @@ sed -i "s/MAP_EVENTS_PARAMS/$map_events_input/g" substreams.yaml
 sed -i "s/FILTER_EVENTS_PARAMS/$filter_events_input/g" substreams.yaml
 
 # run the substream
-substreams run filter_events \
---stop-block +250
+substreams run map_events \
+--start-block 17000205 \
+--stop-block +1
 
 # restore the original file
 mv substreams.yaml.bak substreams.yaml
