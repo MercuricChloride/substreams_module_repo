@@ -83,19 +83,50 @@ fn filter_events(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamEr
 }
 
 // filter all orders by a specific address
-// #[substreams::handlers::map]
-// fn filter_blur_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
-//     let filtered_addresses: Vec<&str> = param.split("&&").collect::<Vec<_>>();
-//     let mut filtered_hotdogs: Vec<Hotdog> = vec![];
-//     for hotdog in hotdogs.hotdogs {
-//         if filtered_names.contains(&hotdog.hotdog_name.as_str()) {
-//             filtered_hotdogs.push(hotdog.clone());
-//         }
-//     }
-//     Ok(Hotdogs {
-//         hotdogs: filtered_hotdogs
-//     })
-// }
+#[substreams::handlers::map]
+fn filter_blur_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
+    let filtered_addresses: Vec<String> = param.split("&&").map(|address| address.to_lowercase()).collect::<Vec<_>>();
+
+    let mut filtered_hotdogs: Vec<Hotdog> = vec![];
+
+    for hotdog in hotdogs.hotdogs {
+        if hotdog.hotdog_name != "OrdersMatched" {
+            continue;
+        }
+
+        let map = hotdog_to_hashmap(&hotdog);
+        let buy = match map.get("buy") {
+            Some(buy) => buy.clone(),
+            None => panic!("map does not contain a buy field {:?}", hotdog)
+        };
+
+        let sell = match map.get("sell") {
+            Some(sell) => sell.clone(),
+            None => panic!("map does not contain a sell field {:?}", map)
+        };
+
+        match (buy, sell) {
+            (ValueEnum::MapValue(buy_map), ValueEnum::MapValue(sell_map)) => {
+                let buy_collection = buy_map.keys.get("collection").unwrap().clone();
+                let sell_collection = sell_map.keys.get("collection").unwrap().clone();
+                match (buy_collection.into(), sell_collection.into()) {
+                    (ValueEnum::StringValue(buy_collection), ValueEnum::StringValue(sell_collection)) => {
+                        if filtered_addresses.contains(&buy_collection) || filtered_addresses.contains(&sell_collection) {
+                            filtered_hotdogs.push(hotdog.clone());
+                        }
+
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
+        };
+    }
+
+    Ok(Hotdogs {
+        hotdogs: filtered_hotdogs
+    })
+}
 
 #[substreams::handlers::store]
 pub fn store_unique_users(hotdogs: Hotdogs, s: StoreSetIfNotExistsBigInt) {

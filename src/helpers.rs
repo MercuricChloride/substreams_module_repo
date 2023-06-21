@@ -119,12 +119,12 @@ pub fn log_to_hotdog(
     add_tx_meta(&mut map, log, block_timestamp, block_hash, block_number);
 
     if let Ok((event, params)) = &abi.decode_log_from_slice(&topics[..] , log.data()) {
-        let decoded_params = params.reader().by_index;
+        let decoded_params = params;
         let mut map: HashMap<String, ValueEnum> = HashMap::new();
         map.insert("hotdog_name".to_string(), ValueEnum::StringValue(event.name.clone()));
         add_tx_meta(&mut map, &log, &block_timestamp, &block_hash, block_number);
 
-        for kv in decoded_params {
+        for kv in decoded_params.iter() {
             let param = &kv.param;
             let value = param_value_to_value_enum(&kv.value);
             map.insert(param.name.clone(), value);
@@ -140,7 +140,7 @@ pub fn param_value_to_value_enum(value: &Value) -> ValueEnum {
     match value {
         Value::Uint(uint, _) => ValueEnum::StringValue(uint.to_string()),
         Value::Int(int, _) => ValueEnum::StringValue(int.to_string()),
-        Value::Address(address) => ValueEnum::StringValue(address.to_string()),
+        Value::Address(address) => ValueEnum::StringValue(format!("{:?}",address)),
         Value::Bool(boolean) => ValueEnum::StringValue(boolean.to_string()),
         Value::FixedBytes(bytes) => ValueEnum::StringValue(format_hex(&bytes)),
         Value::FixedArray(array, _) => {
