@@ -1,7 +1,7 @@
 pub mod helpers;
 mod pb;
 
-use std::{collections::HashMap, str::FromStr};
+use std::{collections::HashMap, str::FromStr, fmt::LowerExp};
 
 use substreams::{pb::substreams::store_delta::Operation, store::{StoreAddBigInt, StoreAdd, StoreGetBigInt, StoreGet}, log::println};
 use helpers::{format_hex, hashmap_to_hotdog, hotdog_to_hashmap, param_value_to_value_enum, add_tx_meta, log_to_hotdog, update_tables};
@@ -10,32 +10,34 @@ use pb::{soulbound_modules::v1::{
 }, sf::substreams::v1::module::input::Store};
 use substreams::{self, errors::Error as SubstreamError, store::{StoreSetIfNotExistsInt64, StoreSetIfNotExists, StoreSetIfNotExistsBigInt, StoreNew, DeltaBigInt, Deltas}, scalar::BigInt};
 use substreams_entity_change::{pb::entity::EntityChanges, tables::Tables};
-use substreams_ethereum::{block_view::LogView, pb::eth::v2 as eth};
+use substreams_ethereum::pb::eth::v2 as eth;
+use ethereum_abi::Abi;
 
-#[substreams::handlers::map]
-pub fn map_blocks(param: String, blk: eth::Block) -> Result<Foo, SubstreamError> {
-    let target_block = param
-        .parse::<u64>()
-        .expect("map_block: error parsing param as u64");
-    if blk.number == target_block {
-        Ok(Foo {
-            number: blk.number,
-            thing: param.clone(),
-        })
-    } else {
-        Ok(Foo::default())
-    }
-}
-
+// takes an input string of address&&abi*
 #[substreams::handlers::map]
 pub fn map_events(param: String, blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
     let split: Vec<&str> = param.split("&&").collect();
 
-    let contract_address = split.first().unwrap().to_lowercase();
+    if split.len() % 2 != 0 {
+        for item in split {
+            println(format!("item {:?}\n\n\n",item));
+        }
 
-    let abi_json = split.last().unwrap();
+        panic!("Every address needs an ABI");
+    }
 
-    let abi: ethereum_abi::Abi = serde_json::from_str(abi_json).unwrap();
+    let mut contract_info: HashMap<String, Abi> = HashMap::new();
+
+    for (index, item) in split.iter().enumerate() {
+        if index % 2 == 0 {
+            continue;
+        } else {
+            let address = split[index - 1].to_lowercase();
+            let abi_json = item;
+            let abi = serde_json::from_str(abi_json).unwrap();
+            contract_info.insert(address, abi);
+        }
+    }
 
     let block_hash = format_hex(&blk.hash);
     let block_number = blk.number;
@@ -52,11 +54,11 @@ pub fn map_events(param: String, blk: eth::Block) -> Result<Hotdogs, SubstreamEr
         .logs()
         .filter_map(|log| {
             let emitter = format_hex(log.address());
-            if emitter != contract_address {
-                return None;
+            if let Some(abi) = contract_info.get(&emitter) {
+                log_to_hotdog(&log, block_number, &block_timestamp, &block_hash, &abi)
+            } else {
+                None
             }
-
-            log_to_hotdog(&log, block_number, &block_timestamp, &block_hash, &abi)
         })
         .collect();
 

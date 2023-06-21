@@ -1,34 +1,27 @@
-#!/bin/bash
+#!/usr/bin/fish
+set bayc_address "0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D"
+set bayc_abi (cat ./bayc_abi.json)
+set blur_address "0x000000000000Ad05Ccc4F10045630fb830B95127"
+set blur_abi (cat ./blur_abi.json)
 
-# Check if the correct number of arguments was provided
-if [[ $# -ne 2 ]]; then
-    echo "Usage: $0 <string> <filepath>"
-    exit 1
-fi
+set map_events_input (string join "\&\&" $bayc_address $bayc_abi $blur_address $blur_abi)
+set filter_events_input "Transfer\&\&Approval"
 
-# Assign the arguments to variables
-user_string="$1"
-file_path="$2"
+if test -e substreams.yaml.bak
+   # if the backup file exists, it means the script was interrupted so we need to restore the original file
+   mv substreams.yaml.bak substreams.yaml
+end
 
-# Validate the file path
-if [[ -e $file_path ]]; then
-    # Concatenate the string and the file path, separated by &&
-    abi=$(cat $file_path)
-    echo $abi
-    concat_string='${user_string}&&${abi}'
+# make a backup of the original file
+cp substreams.yaml substreams.yaml.bak
 
-    # Print the concatenated string
-    substreams run map_abi_events \
-    --stop-block +100 \
-    -p map_abi_events="${concat_string}"
-else
-    echo "The file path you provided does not exist."
-fi
+# replace the placeholder with the input string
+sed -i "s/MAP_EVENTS_PARAMS/$map_events_input/g" substreams.yaml
+sed -i "s/FILTER_EVENTS_PARAMS/$filter_events_input/g" substreams.yaml
 
-# --start-block 17436825 \
-# --stop-block +100 \
-# -p map_event="0x5Af0D9827E0c53E4799BB226655A1de152A425a5&&(Transfer&address_indexed_from&address_indexed_to&uint256_indexed_tokenId)" \
-#--stop-block +10 \
-#-p map_event="0xdAC17F958D2ee523a2206206994597C13D831ec7&&(Transfer&address_indexed_from&address_indexed_to&uint256_value)" \
-#-p map_event="0x5Af0D9827E0c53E4799BB226655A1de152A425a5&&(Approval&address_indexed_owner&address_indexed_approved&uint256_indexed_tokenId)"
-#-p map_event="0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D&&(Transfer&address_indexed_from&address_indexed_to&uint256_indexed_value)"
+# run the substream
+substreams run filter_events \
+--stop-block +250
+
+# restore the original file
+mv substreams.yaml.bak substreams.yaml
