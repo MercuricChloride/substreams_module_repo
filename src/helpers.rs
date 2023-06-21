@@ -178,7 +178,11 @@ pub fn param_value_to_value_enum(value: &Value) -> ValueEnum {
 }
 
 fn create_id(map: &HashMap<String, ValueEnum>) -> String {
-    let tx_hash = map.get("tx_hash").unwrap();
+    let tx_hash = match map.get("tx_hash") {
+        Some(tx_hash) => tx_hash,
+        None => panic!("{:?}", map)
+    };
+
     let tx_log_index = map.get("tx_log_index").unwrap();
 
     // the id will be of form tx_hash-log_index
@@ -190,11 +194,15 @@ fn create_id(map: &HashMap<String, ValueEnum>) -> String {
     }
 }
 
-pub fn update_tables(map: HashMap<String, ValueEnum>, tables: &mut Tables, table_name: Option<&String>) {
-    let id = create_id(&map);
+pub fn update_tables(map: HashMap<String, ValueEnum>, tables: &mut Tables, table_name: Option<&String>, id: Option<&String>) {
+    let id = match id {
+        Some(id) => id.to_string(),
+        None => create_id(&map)
+    };
 
     let table_name = if let Some(table_name) = table_name {
         table_name
+
     } else {
         let table_name = &map.get("hotdog_name").expect("hotdog_name must be present");
 
@@ -205,7 +213,7 @@ pub fn update_tables(map: HashMap<String, ValueEnum>, tables: &mut Tables, table
         }
     };
 
-    let row = tables.update_row(table_name, id);
+    let row = tables.update_row(table_name, &id);
 
     let mut maps = vec![];
     for (key, value) in &map {
@@ -235,7 +243,7 @@ pub fn update_tables(map: HashMap<String, ValueEnum>, tables: &mut Tables, table
     for (_, map_value) in maps {
         let map: HashMap<String, ValueEnum> = map_value.clone().into();
 
-        update_tables(map, tables, Some(table_name));
+        update_tables(map, tables, Some(table_name), Some(&id));
     }
 }
 

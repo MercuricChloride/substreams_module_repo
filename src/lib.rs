@@ -6,7 +6,7 @@ use std::{collections::HashMap, str::FromStr, fmt::LowerExp};
 use substreams::{pb::substreams::store_delta::Operation, store::{StoreAddBigInt, StoreAdd, StoreGetBigInt, StoreGet}, log::println};
 use helpers::{format_hex, hashmap_to_hotdog, hotdog_to_hashmap, param_value_to_value_enum, add_tx_meta, log_to_hotdog, update_tables};
 use pb::{soulbound_modules::v1::{
-    Foo, Hotdog, Hotdogs, value::Value as ValueEnum, Value as ValueStruct
+    Hotdog, Hotdogs, value::Value as ValueEnum, Value as ValueStruct
 }, sf::substreams::v1::module::input::Store};
 use substreams::{self, errors::Error as SubstreamError, store::{StoreSetIfNotExistsInt64, StoreSetIfNotExists, StoreSetIfNotExistsBigInt, StoreNew, DeltaBigInt, Deltas}, scalar::BigInt};
 use substreams_entity_change::{pb::entity::EntityChanges, tables::Tables};
@@ -82,16 +82,28 @@ fn filter_events(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamEr
     })
 }
 
+// filter all orders by a specific address
+// #[substreams::handlers::map]
+// fn filter_blur_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
+//     let filtered_addresses: Vec<&str> = param.split("&&").collect::<Vec<_>>();
+//     let mut filtered_hotdogs: Vec<Hotdog> = vec![];
+//     for hotdog in hotdogs.hotdogs {
+//         if filtered_names.contains(&hotdog.hotdog_name.as_str()) {
+//             filtered_hotdogs.push(hotdog.clone());
+//         }
+//     }
+//     Ok(Hotdogs {
+//         hotdogs: filtered_hotdogs
+//     })
+// }
+
 #[substreams::handlers::store]
 pub fn store_unique_users(hotdogs: Hotdogs, s: StoreSetIfNotExistsBigInt) {
     for hotdog in hotdogs.hotdogs {
-        if hotdog.hotdog_name != "Transfer" {
-            continue;
-        }
         let map = hotdog_to_hashmap(&hotdog);
 
-        let from: ValueEnum = map.get("from").unwrap().clone();
-        let to = map.get("to").unwrap().clone();
+        let from: ValueEnum = map.get("tx_from").unwrap().clone();
+        let to = map.get("tx_to").unwrap().clone();
 
         if let ValueEnum::StringValue(from) = from {
             s.set_if_not_exists(0, &from, &BigInt::one());
@@ -132,7 +144,7 @@ pub fn graph_out(hotdogs: Hotdogs) -> Result<EntityChanges, SubstreamError> {
 
     for hotdog in hotdogs.hotdogs {
         let map = hotdog_to_hashmap(&hotdog);
-        update_tables(map, &mut tables, None);
+        update_tables(map, &mut tables, None, None);
     }
 
     Ok(tables.to_entity_changes())
