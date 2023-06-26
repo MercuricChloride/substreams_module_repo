@@ -3,11 +3,11 @@ mod pb;
 
 use std::{collections::HashMap, str::FromStr, fmt::LowerExp};
 
-use substreams::{pb::substreams::store_delta::Operation, store::{StoreAddBigInt, StoreAdd, StoreGetBigInt, StoreGet}, log::println};
+use substreams::{pb::substreams::store_delta::Operation, store::{StoreAddBigInt, StoreAdd, StoreGetBigInt, StoreGet, StoreSetBigInt}, log::println};
 use helpers::{format_hex, hashmap_to_hotdog, hotdog_to_hashmap, param_value_to_value_enum, add_tx_meta, log_to_hotdog, update_tables};
 use pb::{soulbound_modules::v1::{
     Hotdog, Hotdogs, value::Value as ValueEnum, Value as ValueStruct
-}, sf::substreams::v1::module::input::Store};
+}, sf::substreams::{v1::module::input::Store, rpc::v2::StoreDelta}};
 use substreams::{self, errors::Error as SubstreamError, store::{StoreSetIfNotExistsInt64, StoreSetIfNotExists, StoreSetIfNotExistsBigInt, StoreNew, DeltaBigInt, Deltas}, scalar::BigInt};
 use substreams_entity_change::{pb::entity::EntityChanges, tables::Tables};
 use substreams_ethereum::pb::eth::v2 as eth;
@@ -82,6 +82,38 @@ fn filter_events(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamEr
     })
 }
 
+// sees who owns what and stores it in the store
+#[substreams::handlers::store]
+fn store_ownership_distribution(hotdogs: Hotdogs, s: StoreAddBigInt) {
+    // the hotdogs will be transfer events
+    for hotdog in hotdogs.hotdogs {
+        if hotdog.hotdog_name != "Transfer" {
+            continue;
+        }
+        let map = hotdog_to_hashmap(&hotdog);
+        let from = map.get("from").unwrap().clone();
+        let to = map.get("to").unwrap().clone();
+        let log_index = map.get("log_index").unwrap().clone();
+        match (from, to, log_index) {
+            (ValueEnum::StringValue(from), ValueEnum::StringValue(to), ValueEnum::StringValue(log_index)) => {
+                let log_index = log_index.parse::<u64>().unwrap();
+                s.add(log_index, from, BigInt::from(-1));
+                s.add(log_index, to, BigInt::from(1));
+            }
+            _ => {}
+        }
+    }
+}
+
+// #[substreams::handlers::map]
+// fn ownership_distribution(s: Deltas<Store>) -> Result<Hotdogs, SubstreamError> {
+//     let mut hotdogs: Vec<Hotdog> = vec![];
+//     for (key, value) in s {
+//         hotdogs.push(hotdog);
+//     }
+//     Ok(Hotdogs { hotdogs })
+// }
+
 // filter all orders by a specific address
 #[substreams::handlers::map]
 fn filter_blur_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
@@ -95,6 +127,7 @@ fn filter_blur_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, Substr
         }
 
         let map = hotdog_to_hashmap(&hotdog);
+
         let buy = match map.get("buy") {
             Some(buy) => buy.clone(),
             None => panic!("map does not contain a buy field {:?}", hotdog)

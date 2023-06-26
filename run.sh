@@ -26,7 +26,7 @@ sed -i "s/FILTER_BLUR_TRADES_PARAMS/$filter_blur_trades_input/g" substreams.yaml
 # run the substream
 substreams run filter_blur_trades \
 --start-block 17252197 \
---stop-block +10
+--stop-block +1000
 
 # restore the original file
 mv substreams.yaml.bak substreams.yaml

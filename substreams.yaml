@@ -19,30 +19,6 @@ binaries:
     file: ./target/wasm32-unknown-unknown/release/soulbound_modules.wasm
 
 modules:
-  - name: map_blocks
-    kind: map
-    inputs:
-      - params: string
-      - source: sf.ethereum.type.v2.Block
-    output:
-      type: proto:soulbound_modules.v1.Foo
-
-  - name: map_key_value
-    kind: map
-    inputs:
-      - params: string
-      - source: sf.ethereum.type.v2.Block
-    output:
-      type: proto:soulbound_modules.v1.Hotdog
-
-  - name: map_hotdog
-    kind: map
-    inputs:
-      - params: string
-      - map: map_key_value
-    output:
-      type: proto:soulbound_modules.v1.Hotdog
-
   - name: map_events
     initialBlock: 17000000
     kind: map
@@ -69,7 +45,6 @@ modules:
       - map: map_events
     output:
       type: proto:soulbound_modules.v1.Hotdogs
-
 
   - name: store_unique_users
     initialBlock: 17000000
