@@ -1,0 +1,50 @@
+* Substreams Module Repo 🔭
+
+A collection of some handy dandy Substreams modules, build by @blind_nabler from @SpyglassLabs
+
+To use this repo and play around and modify the src_sh[:exports code]{run.sh} or just run it directly. The shell script is written in fish, but i'll update it to bash shortly.
+
+* Hotdog Powered 🌭
+
+This whole repo revolves around a protobuf type called Hotdog, which is an attempt at adding some sort of dynamic typing to protobufs.
+
+The name comes from the fact a hotdog has a particular shape and is identifiable, even if you don't know what's inside exactly.
+
+* Module Explanations
+
+** map_events
+
+This module maps all events from a contract.
+
+The param string is of the form:
+#+begin_src sh
+CONTRACT_ADDRESS&&CONTRACT_ABI
+#+end_src
+
+This pattern can be repeated as such as well:
+#+begin_src sh
+CONTRACT_ADDRESS&&CONTRACT_ABI&&CONTRACT_ADDRESS&&CONTRACT_ABI
+#+end_src
+
+** filter_events
+This module takes in an input from map_events, and filters out the events to only be of a particular name.
+
+I know this isn't the performant way to do this, but all of this repo isn't geared for maximum performance we are testing things out right now!
+
+So in addition to the map_events input string, this filter_events module takes a string of the form:
+#+begin_src sh
+EVENT_TO_TRACK
+#+end_src
+
+This can also be repeated
+#+begin_src sh
+EVENT_NAME&&ANOTHER_EVENT_NAME
+#+end_src
+** map_unique_users
+A store that counts how many unique addresses have interacted with a contract.
+
+Doesn't take an input other than map_events.
+** graph_out
+A module that takes in map_events as an input, and converts each event to it's EntityChanges table change equivalent.
+
+Can be used to build out a subgraph with 2 modules which is pretty sick IMO!
