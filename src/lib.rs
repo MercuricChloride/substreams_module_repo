@@ -4,7 +4,7 @@ pub mod nft_helpers;
 
 use std::{collections::HashMap, str::FromStr, fmt::LowerExp};
 
-use nft_helpers::{NftPriceConversions, NftPrice};
+use nft_helpers::{NftPrice};
 use substreams::{pb::substreams::store_delta::Operation, store::{StoreAddBigInt, StoreAdd, StoreGetBigInt, StoreGet, StoreSetBigInt}, log::println};
 use helpers::{format_hex, log_to_hotdog, update_tables, HotdogHelpers};
 use pb::{soulbound_modules::v1::{
