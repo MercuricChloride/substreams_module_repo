@@ -1,8 +1,10 @@
 pub mod helpers;
 mod pb;
+pub mod nft_helpers;
 
 use std::{collections::HashMap, str::FromStr, fmt::LowerExp};
 
+use nft_helpers::blur_trade_to_nft_price;
 use substreams::{pb::substreams::store_delta::Operation, store::{StoreAddBigInt, StoreAdd, StoreGetBigInt, StoreGet, StoreSetBigInt}, log::println};
 use helpers::{format_hex, log_to_hotdog, update_tables, HotdogHelpers};
 use pb::{soulbound_modules::v1::{
@@ -105,19 +107,14 @@ fn store_ownership_distribution(hotdogs: Hotdogs, s: StoreAddBigInt) {
     }
 }
 
-// #[substreams::handlers::map]
-// fn ownership_distribution(s: Deltas<Store>) -> Result<Hotdogs, SubstreamError> {
-//     let mut hotdogs: Vec<Hotdog> = vec![];
-//     for (key, value) in s {
-//         hotdogs.push(hotdog);
-//     }
-//     Ok(Hotdogs { hotdogs })
-// }
-
 // filter all orders by a specific address
 #[substreams::handlers::map]
 fn filter_blur_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
     let filtered_addresses: Vec<String> = param.split("&&").map(|address| address.to_lowercase()).collect::<Vec<_>>();
+
+    if filtered_addresses.len() == 1 {
+        return Ok(Hotdogs{ hotdogs: hotdogs.hotdogs })
+    }
 
     let mut filtered_hotdogs: Vec<Hotdog> = vec![];
 
@@ -147,7 +144,6 @@ fn filter_blur_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, Substr
                         if filtered_addresses.contains(&buy_collection) || filtered_addresses.contains(&sell_collection) {
                             filtered_hotdogs.push(hotdog.clone());
                         }
-
                     }
                     _ => {}
                 }
@@ -158,6 +154,20 @@ fn filter_blur_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, Substr
 
     Ok(Hotdogs {
         hotdogs: filtered_hotdogs
+    })
+}
+
+#[substreams::handlers::map]
+pub fn blur_trades(hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
+    let hotdogs = hotdogs.hotdogs.iter().filter_map(|hotdog| {
+       match blur_trade_to_nft_price(hotdog) {
+              Ok(hotdog) => Some(hotdog),
+              _=> None
+       }
+    }).collect::<Vec<Hotdog>>();
+
+    Ok(Hotdogs {
+        hotdogs
     })
 }
 

@@ -43,6 +43,13 @@ modules:
     output:
       type: proto:soulbound_modules.v1.Hotdogs
 
+  - name: blur_trades
+    kind: map
+    inputs:
+      - map: filter_blur_trades
+    output:
+      type: proto:soulbound_modules.v1.Hotdogs
+
   - name: store_unique_users
     kind: store
     updatePolicy: set_if_not_exists
