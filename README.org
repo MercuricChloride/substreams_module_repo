@@ -10,6 +10,42 @@ This whole repo revolves around a protobuf type called Hotdog, which is an attem
 
 The name comes from the fact a hotdog has a particular shape and is identifiable, even if you don't know what's inside exactly.
 
+Here is what it looks like:
+#+begin_src protobuf
+message Value {
+  oneof value {
+    int32 int64_value = 1;
+    uint64 uint64_value = 2;
+    string string_value = 3;
+    Map map_value = 4;
+  }
+}
+
+message Map {
+  map<string, Value> keys = 1;
+}
+
+message Hotdog {
+  string hotdog_name = 1;
+  Map map = 2;
+}
+#+end_src
+
+So we have a Hotdog, which has:
+1. A unique name
+2. A map of keys -> values (which can be more maps to keys -> values)
+
+This gives us plenty of flexibility to work with just about any data, and be able to work with them / filter them for specific modules by filtering off the hotdog name.
+
+Hotdogs at their core are just hashmaps with a name, so within helpers.rs there are some helpers to work with them.
+
+#+begin_src rust
+pub trait HotdogHelpers {
+    fn to_hashmap(&self) -> HashMap<String, ValueEnum>;
+    fn from_hashmap(map: HashMap<String, ValueEnum>) -> Self;
+}
+#+end_src
+
 * Module Explanations
 
 ** map_events

@@ -4,7 +4,7 @@ mod pb;
 use std::{collections::HashMap, str::FromStr, fmt::LowerExp};
 
 use substreams::{pb::substreams::store_delta::Operation, store::{StoreAddBigInt, StoreAdd, StoreGetBigInt, StoreGet, StoreSetBigInt}, log::println};
-use helpers::{format_hex, hashmap_to_hotdog, hotdog_to_hashmap, param_value_to_value_enum, add_tx_meta, log_to_hotdog, update_tables};
+use helpers::{format_hex, log_to_hotdog, update_tables, HotdogHelpers};
 use pb::{soulbound_modules::v1::{
     Hotdog, Hotdogs, value::Value as ValueEnum, Value as ValueStruct
 }, sf::substreams::{v1::module::input::Store, rpc::v2::StoreDelta}};
@@ -90,7 +90,7 @@ fn store_ownership_distribution(hotdogs: Hotdogs, s: StoreAddBigInt) {
         if hotdog.hotdog_name != "Transfer" {
             continue;
         }
-        let map = hotdog_to_hashmap(&hotdog);
+        let map = hotdog.to_hashmap();
         let from = map.get("from").unwrap().clone();
         let to = map.get("to").unwrap().clone();
         let log_index = map.get("log_index").unwrap().clone();
@@ -126,7 +126,7 @@ fn filter_blur_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, Substr
             continue;
         }
 
-        let map = hotdog_to_hashmap(&hotdog);
+        let map = &hotdog.to_hashmap();
 
         let buy = match map.get("buy") {
             Some(buy) => buy.clone(),
@@ -164,7 +164,7 @@ fn filter_blur_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, Substr
 #[substreams::handlers::store]
 pub fn store_unique_users(hotdogs: Hotdogs, s: StoreSetIfNotExistsBigInt) {
     for hotdog in hotdogs.hotdogs {
-        let map = hotdog_to_hashmap(&hotdog);
+        let map = hotdog.to_hashmap();
 
         let from: ValueEnum = map.get("tx_from").unwrap().clone();
         let to = map.get("tx_to").unwrap().clone();
@@ -195,7 +195,7 @@ pub fn map_unique_users(user_count: StoreGetBigInt) -> Result<Hotdog, SubstreamE
         let mut map: HashMap<String, ValueEnum> = HashMap::new();
         map.insert("hotdog_name".to_string(), ValueEnum::StringValue("unique_user_count".to_string()));
         map.insert("unique_user_count".to_string(), ValueEnum::StringValue(user_count.to_string()));
-        Ok(hashmap_to_hotdog(map))
+        Ok(Hotdog::from_hashmap(map))
     } else {
         Ok(Hotdog::default())
     }
@@ -207,7 +207,7 @@ pub fn graph_out(hotdogs: Hotdogs) -> Result<EntityChanges, SubstreamError> {
     let mut tables = Tables::new();
 
     for hotdog in hotdogs.hotdogs {
-        let map = hotdog_to_hashmap(&hotdog);
+        let map = hotdog.to_hashmap();
         update_tables(map, &mut tables, None, None);
     }
 

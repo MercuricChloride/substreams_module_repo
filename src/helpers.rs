@@ -15,38 +15,57 @@ pub fn format_hex(hex: &[u8]) -> String {
     format!("0x{}", Hex(hex).to_string())
 }
 
-/// TODO This is pretty slow, I gotta update this
-pub fn hotdog_to_hashmap(hotdog: &Hotdog) -> HashMap<String, ValueEnum> {
-    let mut map:HashMap<String, ValueEnum> = HashMap::new();
-
-
-    for (key, value) in hotdog.map.as_ref().unwrap().keys.iter() {
-        map.insert(key.to_string(), value.value.clone().unwrap());
-    }
-
-    map.insert("hotdog_name".to_string(), ValueEnum::StringValue(hotdog.hotdog_name.clone()));
-
-    map
+pub trait HotdogHelpers {
+    fn to_hashmap(&self) -> HashMap<String, ValueEnum>;
+    fn from_hashmap(map: HashMap<String, ValueEnum>) -> Self;
 }
 
-/// TODO This is pretty slow, I gotta update this
-pub fn hashmap_to_hotdog(map: HashMap<String, ValueEnum>) -> Hotdog {
-    let mut new_map: HashMap<String, ValueStruct> = HashMap::new();
+impl From<Hotdog> for HashMap<String, ValueEnum> {
+    fn from(hotdog: Hotdog) -> Self {
+        let mut map:HashMap<String, ValueEnum> = HashMap::new();
 
-    let hotdog_name = if let ValueEnum::StringValue(name) = map.get("hotdog_name").unwrap().clone() {
-        name
-    } else {
-        panic!("No hotdog_name in hashmap");
-    };
 
-    for (key, value) in map {
-        if key == "hotdog_name" {
-            continue;
+        for (key, value) in hotdog.map.as_ref().unwrap().keys.iter() {
+            map.insert(key.to_string(), value.value.clone().unwrap());
         }
-        new_map.insert(key.clone(), ValueStruct{ value: Some(value.clone()) });
+
+        map.insert("hotdog_name".to_string(), ValueEnum::StringValue(hotdog.hotdog_name.clone()));
+
+        map
+    }
+}
+
+impl From<HashMap<String, ValueEnum>> for Hotdog {
+    fn from(map: HashMap<String, ValueEnum>) -> Self {
+        let mut new_map: HashMap<String, ValueStruct> = HashMap::new();
+
+        let hotdog_name = if let ValueEnum::StringValue(name) = map.get("hotdog_name").unwrap().clone() {
+            name
+        } else {
+            panic!("No hotdog_name in hashmap");
+        };
+
+        for (key, value) in map {
+            if key == "hotdog_name" {
+                continue;
+            }
+            new_map.insert(key.clone(), ValueStruct{ value: Some(value.clone()) });
+        }
+
+        Hotdog { hotdog_name, map: Some(Map {keys: new_map} )}
+    }
+}
+
+impl HotdogHelpers for Hotdog {
+    /// TODO This is pretty slow, I gotta update this
+    fn to_hashmap(&self) -> HashMap<String, ValueEnum> {
+        self.clone().into()
     }
 
-    Hotdog { hotdog_name, map: Some(Map {keys: new_map} )}
+    /// TODO This is pretty slow, I gotta update this
+    fn from_hashmap(map: HashMap<String, ValueEnum>) -> Self {
+        map.into()
+    }
 }
 
 pub fn add_tx_meta(
@@ -130,7 +149,7 @@ pub fn log_to_hotdog(
             map.insert(param.name.clone(), value);
         }
 
-        Some(hashmap_to_hotdog(map))
+        Some(map.into())
     } else {
         None
     }
@@ -271,7 +290,7 @@ trait UpdateTables {
 
 impl UpdateTables for Hotdog {
     fn create_id(&self) -> String {
-        let map = hotdog_to_hashmap(&self);
+        let map = &self.to_hashmap();
         let tx_hash = map.get("tx_hash").unwrap();
         let tx_log_index = map.get("tx_log_index").unwrap();
 
@@ -285,7 +304,7 @@ impl UpdateTables for Hotdog {
     }
 
     fn update_tables(&self, tables: &mut Tables) {
-        let map = hotdog_to_hashmap(&self);
+        let map = self.to_hashmap();
 
         let id = self.create_id();
         let table_name = &self.hotdog_name;
