@@ -4,7 +4,7 @@ pub mod nft_helpers;
 
 use std::{collections::HashMap, str::FromStr, fmt::LowerExp};
 
-use nft_helpers::blur_trade_to_nft_price;
+use nft_helpers::{NftPriceConversions, NftPrice};
 use substreams::{pb::substreams::store_delta::Operation, store::{StoreAddBigInt, StoreAdd, StoreGetBigInt, StoreGet, StoreSetBigInt}, log::println};
 use helpers::{format_hex, log_to_hotdog, update_tables, HotdogHelpers};
 use pb::{soulbound_modules::v1::{
@@ -160,7 +160,21 @@ fn filter_blur_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, Substr
 #[substreams::handlers::map]
 pub fn blur_trades(hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
     let hotdogs = hotdogs.hotdogs.iter().filter_map(|hotdog| {
-       match blur_trade_to_nft_price(hotdog) {
+       match NftPrice::from_blur(hotdog) {
+              Ok(hotdog) => Some(hotdog),
+              _=> None
+       }
+    }).collect::<Vec<Hotdog>>();
+
+    Ok(Hotdogs {
+        hotdogs
+    })
+}
+
+#[substreams::handlers::map]
+pub fn seaport_trades(hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
+    let hotdogs = hotdogs.hotdogs.iter().filter_map(|hotdog| {
+       match NftPrice::from_seaport(hotdog) {
               Ok(hotdog) => Some(hotdog),
               _=> None
        }

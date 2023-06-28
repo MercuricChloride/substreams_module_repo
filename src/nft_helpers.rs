@@ -3,13 +3,7 @@ use std::collections::HashMap;
 
 use crate::{pb::soulbound_modules::v1::Hotdog, helpers::HotdogHelpers};
 
-/// This function will take in a blur_trade hotdog
-/// And return a hotdog with the keys:
-///     - collection
-///     - token_id
-///     - price
-///     - payment_token
-pub fn blur_trade_to_nft_price(hotdog: &Hotdog) -> Result<Hotdog, &str> {
+fn blur_trade_to_nft_price(hotdog: &Hotdog) -> Result<Hotdog, &str> {
     let name = &hotdog.hotdog_name;
     if name != "OrdersMatched" {
         return Err("hotdog is not an OrdersMatched hotdog");
@@ -44,5 +38,27 @@ pub fn blur_trade_to_nft_price(hotdog: &Hotdog) -> Result<Hotdog, &str> {
             Ok(Hotdog::from(output_map))
         }
         _ => Err("buy and sell are not maps")
+    }
+}
+
+pub fn seaport_trade_to_nft_price(hotdog: &Hotdog) -> Result<Hotdog, &str> {
+    todo!()
+}
+
+/// A struct that allows conversions between a hotdog and a hotdog of type NftPrice
+/// NFTPrice contains:
+///     - collection
+///     - token_id
+///     - price
+///     - payment_token
+pub struct NftPrice;
+
+impl NftPrice {
+    pub fn from_blur(hotdog: &Hotdog) -> Result<Hotdog, &str> {
+        blur_trade_to_nft_price(hotdog)
+    }
+
+    pub fn from_seaport(hotdog: &Hotdog) -> Result<Hotdog, &str> {
+        seaport_trade_to_nft_price(hotdog)
     }
 }
