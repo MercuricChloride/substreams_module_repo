@@ -11,6 +11,15 @@ use substreams::log::println;
 use substreams::{scalar::BigInt, Hex};
 use substreams_ethereum::{block_view::LogView, pb::eth::v2::Log};
 
+pub fn format_hex(hex: &[u8]) -> String {
+    format!("0x{}", Hex(hex).to_string())
+}
+
+pub trait HotdogHelpers {
+    fn to_hashmap(&self) -> HashMap<String, ValueEnum>;
+    fn from_hashmap(map: HashMap<String, ValueEnum>) -> Self;
+}
+
 impl From<Hotdog> for HashMap<String, ValueEnum> {
     fn from(hotdog: Hotdog) -> Self {
         let mut map:HashMap<String, ValueEnum> = HashMap::new();
@@ -45,61 +54,6 @@ impl From<HashMap<String, ValueEnum>> for Hotdog {
 
         Hotdog { hotdog_name, map: Some(Map {keys: new_map} )}
     }
-}
-
-pub fn log_to_hotdog(
-    log: &LogView,
-    block_number: u64,
-    block_timestamp: &String,
-    block_hash: &String,
-    abi: &ethereum_abi::Abi,
-) -> Option<Hotdog> {
-    let mut map = HashMap::new();
-
-    let topics = &log.topics().iter().map(|topic| {
-        primitive_types::H256::from_slice(&topic[..])
-    }).collect::<Vec<_>>();
-
-    add_tx_meta(&mut map, log, block_timestamp, block_hash, block_number);
-
-    if let Ok((event, params)) = &abi.decode_log_from_slice(&topics[..] , log.data()) {
-        let decoded_params = params;
-        let mut map: HashMap<String, ValueEnum> = HashMap::new();
-        map.insert("hotdog_name".to_string(), ValueEnum::StringValue(event.name.clone()));
-        add_tx_meta(&mut map, &log, &block_timestamp, &block_hash, block_number);
-
-        for kv in decoded_params.iter() {
-            let param = &kv.param;
-            let value = param_value_to_value_enum(&kv.value);
-            map.insert(param.name.clone(), value);
-        }
-
-        Some(map.into())
-    } else {
-        None
-    }
-}
-
-impl Into<ValueEnum> for ValueStruct {
-    fn into(self) -> ValueEnum {
-        match self.value {
-            Some(value) => value,
-            None => panic!("value must be present")
-        }
-    }
-}
-
-impl Into<HashMap<String, ValueEnum>> for Map {
-    fn into(self) -> HashMap<String, ValueEnum> {
-        self.keys.into_iter().map(|(key, value)| {
-            (key, value.into())
-        }).collect()
-    }
-}
-
-pub trait HotdogHelpers {
-    fn to_hashmap(&self) -> HashMap<String, ValueEnum>;
-    fn from_hashmap(map: HashMap<String, ValueEnum>) -> Self;
 }
 
 impl HotdogHelpers for Hotdog {
@@ -168,47 +122,36 @@ pub fn add_tx_meta(
     );
 }
 
-trait UpdateTables {
-    fn create_id(&self) -> String;
-    fn update_tables(&self, tables: &mut Tables);
-}
+pub fn log_to_hotdog(
+    log: &LogView,
+    block_number: u64,
+    block_timestamp: &String,
+    block_hash: &String,
+    abi: &ethereum_abi::Abi,
+) -> Option<Hotdog> {
+    let mut map = HashMap::new();
 
-impl UpdateTables for Hotdog {
-    fn create_id(&self) -> String {
-        let map = &self.to_hashmap();
-        let tx_hash = map.get("tx_hash").unwrap();
-        let tx_log_index = map.get("tx_log_index").unwrap();
+    let topics = &log.topics().iter().map(|topic| {
+        primitive_types::H256::from_slice(&topic[..])
+    }).collect::<Vec<_>>();
 
-        // the id will be of form tx_hash-log_index
-        match (tx_hash, tx_log_index) {
-            (ValueEnum::StringValue(tx_hash), ValueEnum::StringValue(tx_log_index)) => {
-                format!("{}-{}", tx_hash, tx_log_index)
-            }
-            _ => panic!("tx_hash and tx_log_index must be strings")
+    add_tx_meta(&mut map, log, block_timestamp, block_hash, block_number);
+
+    if let Ok((event, params)) = &abi.decode_log_from_slice(&topics[..] , log.data()) {
+        let decoded_params = params;
+        let mut map: HashMap<String, ValueEnum> = HashMap::new();
+        map.insert("hotdog_name".to_string(), ValueEnum::StringValue(event.name.clone()));
+        add_tx_meta(&mut map, &log, &block_timestamp, &block_hash, block_number);
+
+        for kv in decoded_params.iter() {
+            let param = &kv.param;
+            let value = param_value_to_value_enum(&kv.value);
+            map.insert(param.name.clone(), value);
         }
-    }
 
-    fn update_tables(&self, tables: &mut Tables) {
-        let map = self.to_hashmap();
-
-        let id = self.create_id();
-        let table_name = &self.hotdog_name;
-        let row = tables.create_row(table_name, id);
-
-        for (key, value) in map {
-            match value {
-                ValueEnum::Int64Value(int_value) => row.set(&key, int_value),
-                ValueEnum::Uint64Value(uint_value) => row.set(&key, uint_value),
-                ValueEnum::StringValue(string_value) => {
-                    if let Ok(_) = BigInt::from_str(&string_value) {
-                        row.set_bigint(&key, &string_value)
-                    } else {
-                        row.set(&key, string_value)
-                    }
-                }
-                ValueEnum::MapValue(map_value) => todo!(),
-            };
-        }
+        Some(map.into())
+    } else {
+        None
     }
 }
 
@@ -253,6 +196,64 @@ pub fn param_value_to_value_enum(value: &Value) -> ValueEnum {
     }
 }
 
-pub fn format_hex(hex: &[u8]) -> String {
-  format!("0x{}", Hex(hex).to_string())
+
+impl Into<ValueEnum> for ValueStruct {
+    fn into(self) -> ValueEnum {
+        match self.value {
+            Some(value) => value,
+            None => panic!("value must be present")
+        }
+    }
+}
+
+impl Into<HashMap<String, ValueEnum>> for Map {
+    fn into(self) -> HashMap<String, ValueEnum> {
+        self.keys.into_iter().map(|(key, value)| {
+            (key, value.into())
+        }).collect()
+    }
+}
+
+trait UpdateTables {
+    fn create_id(&self) -> String;
+    fn update_tables(&self, tables: &mut Tables);
+}
+
+impl UpdateTables for Hotdog {
+    fn create_id(&self) -> String {
+        let map = &self.to_hashmap();
+        let tx_hash = map.get("tx_hash").unwrap();
+        let tx_log_index = map.get("tx_log_index").unwrap();
+
+        // the id will be of form tx_hash-log_index
+        match (tx_hash, tx_log_index) {
+            (ValueEnum::StringValue(tx_hash), ValueEnum::StringValue(tx_log_index)) => {
+                format!("{}-{}", tx_hash, tx_log_index)
+            }
+            _ => panic!("tx_hash and tx_log_index must be strings")
+        }
+    }
+
+    fn update_tables(&self, tables: &mut Tables) {
+        let map = self.to_hashmap();
+
+        let id = self.create_id();
+        let table_name = &self.hotdog_name;
+        let row = tables.create_row(table_name, id);
+
+        for (key, value) in map {
+            match value {
+                ValueEnum::Int64Value(int_value) => row.set(&key, int_value),
+                ValueEnum::Uint64Value(uint_value) => row.set(&key, uint_value),
+                ValueEnum::StringValue(string_value) => {
+                    if let Ok(_) = BigInt::from_str(&string_value) {
+                        row.set_bigint(&key, &string_value)
+                    } else {
+                        row.set(&key, string_value)
+                    }
+                }
+                ValueEnum::MapValue(map_value) => todo!(),
+            };
+        }
+    }
 }

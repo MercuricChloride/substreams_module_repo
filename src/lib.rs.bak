@@ -5,7 +5,7 @@ pub mod nft_helpers;
 use std::collections::HashMap;
 use nft_helpers::NftPrice;
 use substreams::{pb::substreams::store_delta::Operation, store::{StoreAddBigInt, StoreAdd, StoreGetBigInt, StoreGet}, log::println};
-use helpers::{format_hex, log_to_hotdog, HotdogHelpers};
+use helpers::{format_hex, log_to_hotdog, update_tables, HotdogHelpers};
 use pb::soulbound_modules::v1::{Hotdog, Hotdogs, value::Value as ValueEnum, Value as ValueStruct};
 use substreams::{self, errors::Error as SubstreamError, store::{StoreSetIfNotExists, StoreSetIfNotExistsBigInt, StoreNew, DeltaBigInt, Deltas}, scalar::BigInt};
 use substreams_entity_change::{pb::entity::EntityChanges, tables::Tables};
@@ -79,6 +79,29 @@ fn filter_events(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamEr
     Ok(Hotdogs {
         hotdogs: filtered_hotdogs
     })
+}
+
+// sees who owns what and stores it in the store
+#[substreams::handlers::store]
+fn store_ownership_distribution(hotdogs: Hotdogs, s: StoreAddBigInt) {
+    // the hotdogs will be transfer events
+    for hotdog in hotdogs.hotdogs {
+        if hotdog.hotdog_name != "Transfer" {
+            continue;
+        }
+        let map = hotdog.to_hashmap();
+        let from = map.get("from").unwrap().clone();
+        let to = map.get("to").unwrap().clone();
+        let log_index = map.get("log_index").unwrap().clone();
+        match (from, to, log_index) {
+            (ValueEnum::StringValue(from), ValueEnum::StringValue(to), ValueEnum::StringValue(log_index)) => {
+                let log_index = log_index.parse::<u64>().unwrap();
+                s.add(log_index, from, BigInt::from(-1));
+                s.add(log_index, to, BigInt::from(1));
+            }
+            _ => {}
+        }
+    }
 }
 
 // filter all orders by a specific address
@@ -160,28 +183,6 @@ pub fn seaport_trades(hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
 }
 
 #[substreams::handlers::store]
-fn store_ownership_distribution(hotdogs: Hotdogs, s: StoreAddBigInt) {
-    // the hotdogs will be transfer events
-    for hotdog in hotdogs.hotdogs {
-        if hotdog.hotdog_name != "Transfer" {
-            continue;
-        }
-        let map = hotdog.to_hashmap();
-        let from = map.get("from").unwrap().clone();
-        let to = map.get("to").unwrap().clone();
-        let log_index = map.get("log_index").unwrap().clone();
-        match (from, to, log_index) {
-            (ValueEnum::StringValue(from), ValueEnum::StringValue(to), ValueEnum::StringValue(log_index)) => {
-                let log_index = log_index.parse::<u64>().unwrap();
-                s.add(log_index, from, BigInt::from(-1));
-                s.add(log_index, to, BigInt::from(1));
-            }
-            _ => {}
-        }
-    }
-}
-
-#[substreams::handlers::store]
 pub fn store_unique_users(hotdogs: Hotdogs, s: StoreSetIfNotExistsBigInt) {
     for hotdog in hotdogs.hotdogs {
         let map = hotdog.to_hashmap();
@@ -219,4 +220,17 @@ pub fn map_unique_users(user_count: StoreGetBigInt) -> Result<Hotdog, SubstreamE
     } else {
         Ok(Hotdog::default())
     }
+}
+
+#[substreams::handlers::map]
+pub fn graph_out(hotdogs: Hotdogs) -> Result<EntityChanges, SubstreamError> {
+
+    let mut tables = Tables::new();
+
+    for hotdog in hotdogs.hotdogs {
+        let map = hotdog.to_hashmap();
+        update_tables(map, &mut tables, None, None);
+    }
+
+    Ok(tables.to_entity_changes())
 }

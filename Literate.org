@@ -1,0 +1,835 @@
+#+title: Substreams Module repo
+#+date:    2023-06-29
+
+* Tasks [1/5]
+** DONE Build out the literate programming document
+I want to get this all configured correctly, so I am making this a task.
+** TODO Add the seaport nft trade module
+** TODO Add the superrare nft trade module
+** TODO Make the [[#filter_blur_trades]] module hardcoded
+** TODO Complete the [[#seaport_trades]] module
+
+* Timeframe
+Not really a timeframe yet
+
+* Notes
+This is a test of literate programming with lsp-mode in emacs
+
+To edit something, execute (lsp-org) within a code block
+To finish editing a block, execute (lsp-virtual-buffer-disconnect)
+
+** Hotdog "types"
+:PROPERTIES:
+:CUSTOM_ID: hotdog_types
+:END:
+
+
+I am playing with this idea of hotdog "types"
+
+Which are just a standard way of having a specific structure for these hotdogs to work with in a frontend.
+
+The reason for this, is let's say you want to display NFT price data on a dashboard. If you get your values from say, seaport, blur, and superrare. You will have to extract meaningful price data from all 3 of these events in your dashboard.
+
+If we instead have a hotdog that has keys already there for the price data, IE collection address, payment token, price, and token id, we don't have to worry about this.
+
+It might make sense to just build these out as standalone protobufs, but for now I think it's fine as a hotdog.
+
+* Protobufs
+** Hotdogs
+:PROPERTIES:
+:CUSTOM_ID: Hotdog
+:END:
+Hotdogs are a core part of how this whole module system works.
+
+Helpers for working with hotdogs can be found [[#hotdog_helpers][here]]
+*** The reason for hotdogs
+
+Substreams modules have to have a known protobuf type for their inputs and outputs.
+
+However for the generalized event parsing module, we needed to be able to stream arbitrary events. IE Transfer or Approval etc.
+
+So we needed a way for a module to output a dynamic type.
+
+The name comes from the fact, you don't really know what is inside of a hotdog. But you can consume them all the same. Much like the data coming from these more dynamic modules!
+
+*** Hotdog Code
+
+#+begin_src protobuf :tangle "proto/soulbound.proto"
+syntax = "proto3";
+
+package soulbound_modules.v1;
+
+message Value {
+  oneof value {
+    int32 int64_value = 1;
+    uint64 uint64_value = 2;
+    string string_value = 3;
+    Map map_value = 4;
+  }
+}
+
+message Map {
+  map<string, Value> keys = 1;
+}
+
+message Hotdog {
+  string hotdog_name = 1;
+  Map map = 2;
+}
+
+message Hotdogs {
+  repeated Hotdog hotdogs = 1;
+}
+#+end_src
+** Hotdog "types"
+I am not sure exactly where to put this section. Because it is really more of a note than anything.
+
+But I have this idea of "hotdog types", where we have some unit structs, which have helpers going from and to this type. But they never aren't hotdogs.
+
+The first example of this is the [[#nft_price][Nft Price]] type
+
+* helpers.rs
+:PROPERTIES:
+:header-args: :tangle "src/helpers.rs"
+:END:
+A collection of helper functions to make life easier
+
+** Imports
+
+#+begin_src rust
+use std::str::FromStr;
+use std::{collections::HashMap, ops::Mul, str::from_utf8};
+use ethereum_abi::Value;
+use fancy_regex::Regex;
+use substreams_entity_change::tables::Tables;
+
+use crate::pb::soulbound_modules::v1::{Hotdog, Hotdogs, Map};
+use crate::pb::soulbound_modules::v1::{value::Value as ValueEnum, Value as ValueStruct};
+use sha3::{self, Digest};
+use substreams::log::println;
+use substreams::{scalar::BigInt, Hex};
+use substreams_ethereum::{block_view::LogView, pb::eth::v2::Log};
+#+end_src
+
+** Hotdog Helpers
+:PROPERTIES:
+:CUSTOM_ID: hotdog_helpers
+:END:
+The actual method for interacting with hotdogs can be really syntaxically gnarly.
+So we have some helpers to work with them easier.
+
+In general the best practice involves, converting a hotdog into a hashmap, working with that map, and then converting it back into a hotdog.
+
+Also with values, the syntax can be gnarly, but most values impliment a .into() method for converting some value into a "ValueEnum" of the appropriate value.
+
+*** Type Conversions
+**** From Hotdog -> HashMap
+#+begin_src rust
+impl From<Hotdog> for HashMap<String, ValueEnum> {
+    fn from(hotdog: Hotdog) -> Self {
+        let mut map:HashMap<String, ValueEnum> = HashMap::new();
+
+
+        for (key, value) in hotdog.map.as_ref().unwrap().keys.iter() {
+            map.insert(key.to_string(), value.value.clone().unwrap());
+        }
+
+        map.insert("hotdog_name".to_string(), ValueEnum::StringValue(hotdog.hotdog_name.clone()));
+
+        map
+    }
+}
+#+end_src
+
+**** From Hashmap -> Hotdog
+#+begin_src rust
+impl From<HashMap<String, ValueEnum>> for Hotdog {
+    fn from(map: HashMap<String, ValueEnum>) -> Self {
+        let mut new_map: HashMap<String, ValueStruct> = HashMap::new();
+
+        let hotdog_name = if let ValueEnum::StringValue(name) = map.get("hotdog_name").unwrap().clone() {
+            name
+        } else {
+            panic!("No hotdog_name in hashmap");
+        };
+
+        for (key, value) in map {
+            if key == "hotdog_name" {
+                continue;
+            }
+            new_map.insert(key.clone(), ValueStruct{ value: Some(value.clone()) });
+        }
+
+        Hotdog { hotdog_name, map: Some(Map {keys: new_map} )}
+    }
+}
+#+end_src
+**** Log -> hotdog
+Takes in a log and some other data and creates a hotdog from it
+#+begin_src rust
+pub fn log_to_hotdog(
+    log: &LogView,
+    block_number: u64,
+    block_timestamp: &String,
+    block_hash: &String,
+    abi: &ethereum_abi::Abi,
+) -> Option<Hotdog> {
+    let mut map = HashMap::new();
+
+    let topics = &log.topics().iter().map(|topic| {
+        primitive_types::H256::from_slice(&topic[..])
+    }).collect::<Vec<_>>();
+
+    add_tx_meta(&mut map, log, block_timestamp, block_hash, block_number);
+
+    if let Ok((event, params)) = &abi.decode_log_from_slice(&topics[..] , log.data()) {
+        let decoded_params = params;
+        let mut map: HashMap<String, ValueEnum> = HashMap::new();
+        map.insert("hotdog_name".to_string(), ValueEnum::StringValue(event.name.clone()));
+        add_tx_meta(&mut map, &log, &block_timestamp, &block_hash, block_number);
+
+        for kv in decoded_params.iter() {
+            let param = &kv.param;
+            let value = param_value_to_value_enum(&kv.value);
+            map.insert(param.name.clone(), value);
+        }
+
+        Some(map.into())
+    } else {
+        None
+    }
+}
+#+end_src
+**** ValueStruct into -> ValueEnum
+Conversion from a ValueStruct into a ValueEnum. Again naming doesn't feel great here but not sure how to make this better.
+
+#+begin_src rust
+impl Into<ValueEnum> for ValueStruct {
+    fn into(self) -> ValueEnum {
+        match self.value {
+            Some(value) => value,
+            None => panic!("value must be present")
+        }
+    }
+}
+#+end_src
+**** Map into -> HashMap<String, ValueEnum>
+
+Another type conversion that helps with the syntax soup.
+
+#+begin_src rust
+impl Into<HashMap<String, ValueEnum>> for Map {
+    fn into(self) -> HashMap<String, ValueEnum> {
+        self.keys.into_iter().map(|(key, value)| {
+            (key, value.into())
+        }).collect()
+    }
+}
+#+end_src
+
+*** Hotdog helpers trait
+Some similar type conversion helpers are present in this trait
+
+#+begin_src rust
+pub trait HotdogHelpers {
+    fn to_hashmap(&self) -> HashMap<String, ValueEnum>;
+    fn from_hashmap(map: HashMap<String, ValueEnum>) -> Self;
+}
+
+impl HotdogHelpers for Hotdog {
+    /// TODO This is pretty slow, I gotta update this
+    fn to_hashmap(&self) -> HashMap<String, ValueEnum> {
+        self.clone().into()
+    }
+
+    /// TODO This is pretty slow, I gotta update this
+    fn from_hashmap(map: HashMap<String, ValueEnum>) -> Self {
+        map.into()
+    }
+}
+#+end_src
+*** Misc Functions
+Just some more miscellaneous functions
+
+**** Add tx meta
+
+Adds the event log transaction metadata to a hotdog.
+
+This data is generally good to have
+#+begin_src rust
+pub fn add_tx_meta(
+    map: &mut HashMap<String, ValueEnum>,
+    log: &LogView,
+    block_timestamp: &String,
+    block_hash: &String,
+    block_number: u64,
+) {
+    map.insert(
+        "tx_log_index".to_string(),
+        ValueEnum::StringValue(log.index().to_string()),
+    );
+    map.insert(
+        "tx_hash".to_string(),
+        ValueEnum::StringValue(format_hex(&log.receipt.transaction.hash)),
+    );
+    map.insert(
+        "tx_index".to_string(),
+        ValueEnum::StringValue(log.receipt.transaction.index.to_string()),
+    );
+    map.insert(
+        "tx_from".to_string(),
+        ValueEnum::StringValue(format_hex(&log.receipt.transaction.from)),
+    );
+    map.insert(
+        "tx_to".to_string(),
+        ValueEnum::StringValue(format_hex(&log.receipt.transaction.to)),
+    );
+    let gas_used = log.receipt.transaction.gas_used;
+    map.insert(
+        "tx_gas_used".to_string(),
+        ValueEnum::StringValue(gas_used.to_string()),
+    );
+    if let Some(gas_price) = &log.receipt.transaction.gas_price {
+        let gas_price = BigInt::from_unsigned_bytes_be(&gas_price.bytes);
+        map.insert(
+            "tx_gas_price".to_string(),
+            ValueEnum::StringValue(gas_price.to_string()),
+        );
+        map.insert(
+            "tx_total_gas_price".to_string(),
+            ValueEnum::StringValue(gas_price.mul(gas_used).to_string()),
+        );
+    }
+    map.insert("block_number".to_string(), ValueEnum::Uint64Value(block_number));
+    map.insert(
+        "block_hash".to_string(),
+        ValueEnum::StringValue(block_hash.clone()),
+    );
+    map.insert(
+        "block_timestamp".to_string(),
+        ValueEnum::StringValue(block_timestamp.clone()),
+    );
+}
+#+end_src
+**** Update Tables Trait and Impl
+
+The update tables trait is used to give the hotdog the ability to update postgres tables.
+
+This is used within the [[#graph_out]] module
+
+#+begin_src rust
+trait UpdateTables {
+    fn create_id(&self) -> String;
+    fn update_tables(&self, tables: &mut Tables);
+}
+
+impl UpdateTables for Hotdog {
+    fn create_id(&self) -> String {
+        let map = &self.to_hashmap();
+        let tx_hash = map.get("tx_hash").unwrap();
+        let tx_log_index = map.get("tx_log_index").unwrap();
+
+        // the id will be of form tx_hash-log_index
+        match (tx_hash, tx_log_index) {
+            (ValueEnum::StringValue(tx_hash), ValueEnum::StringValue(tx_log_index)) => {
+                format!("{}-{}", tx_hash, tx_log_index)
+            }
+            _ => panic!("tx_hash and tx_log_index must be strings")
+        }
+    }
+
+    fn update_tables(&self, tables: &mut Tables) {
+        let map = self.to_hashmap();
+
+        let id = self.create_id();
+        let table_name = &self.hotdog_name;
+        let row = tables.create_row(table_name, id);
+
+        for (key, value) in map {
+            match value {
+                ValueEnum::Int64Value(int_value) => row.set(&key, int_value),
+                ValueEnum::Uint64Value(uint_value) => row.set(&key, uint_value),
+                ValueEnum::StringValue(string_value) => {
+                    if let Ok(_) = BigInt::from_str(&string_value) {
+                        row.set_bigint(&key, &string_value)
+                    } else {
+                        row.set(&key, string_value)
+                    }
+                }
+                ValueEnum::MapValue(map_value) => todo!(),
+            };
+        }
+    }
+}
+#+end_src
+**** param_value_to_value_enum
+
+This function converts a ethereum_abi::Value into a value enum for use in a hotdog.
+
+I am not sure what better to name this, though the name doesn't feel great.
+
+#+begin_src rust
+pub fn param_value_to_value_enum(value: &Value) -> ValueEnum {
+    match value {
+        Value::Uint(uint, _) => ValueEnum::StringValue(uint.to_string()),
+        Value::Int(int, _) => ValueEnum::StringValue(int.to_string()),
+        Value::Address(address) => ValueEnum::StringValue(format!("{:?}",address)),
+        Value::Bool(boolean) => ValueEnum::StringValue(boolean.to_string()),
+        Value::FixedBytes(bytes) => ValueEnum::StringValue(format_hex(&bytes)),
+        Value::FixedArray(array, _) => {
+            let mut map = HashMap::new();
+            for i in 0..array.len() {
+                let value = &array[i];
+                map.insert(i.to_string(), ValueStruct { value: Some(param_value_to_value_enum(&value))});
+            }
+            ValueEnum::MapValue(
+                Map { keys: map }
+            )
+        }
+        Value::String(string) => ValueEnum::StringValue(string.to_string()),
+        Value::Bytes(bytes) => ValueEnum::StringValue(format_hex(&bytes)),
+        Value::Array(array, _) => {
+            let mut map = HashMap::new();
+            for i in 0..array.len() {
+                let value = &array[i];
+                map.insert(i.to_string(), ValueStruct { value: Some(param_value_to_value_enum(&value))});
+            }
+            ValueEnum::MapValue(
+                Map { keys: map }
+            )
+        }
+        Value::Tuple(tuple_arr) => {
+            let mut map = HashMap::new();
+            for (name, value) in tuple_arr.iter() {
+                map.insert(name.to_string(), ValueStruct { value: Some(param_value_to_value_enum(&value))});
+            }
+            ValueEnum::MapValue(
+                Map { keys: map }
+            )
+        }
+    }
+}
+#+end_src
+
+** General Helpers
+*** Format Hex
+#+begin_src rust
+pub fn format_hex(hex: &[u8]) -> String {
+  format!("0x{}", Hex(hex).to_string())
+}
+#+end_src
+* nft_helpers.rs
+:PROPERTIES:
+:header-args: :tangle "src/nft_helpers.rs"
+:END:
+** Imports
+#+begin_src rust
+use crate::ValueEnum;
+use std::collections::HashMap;
+
+use crate::{pb::soulbound_modules::v1::Hotdog, helpers::HotdogHelpers};
+#+end_src
+** NFT Price "type"
+:PROPERTIES:
+:CUSTOM_ID: nft_price
+:END:
+
+Explanation of [[#hotdog_types]]
+
+The purpose of this type is to have a common way to display an NFT trade in a dashboard, rather than handling events for each different nft marketplace event.
+
+The way we are going to impliment any sort of "types" for hotdogs are as unit structs, with helper functions for converting specific other types or events into this "type".
+
+#+begin_src rust
+/// A struct that allows conversions between a hotdog and a hotdog of type NftPrice
+/// NFTPrice contains:
+///     - collection
+///     - token_id
+///     - price
+///     - payment_token
+pub struct NftPrice;
+
+impl NftPrice {
+    pub fn from_blur(hotdog: &Hotdog) -> Result<Hotdog, &str> {
+        blur_trade_to_nft_price(hotdog)
+    }
+
+    pub fn from_seaport(hotdog: &Hotdog) -> Result<Hotdog, &str> {
+        seaport_trade_to_nft_price(hotdog)
+    }
+}
+#+end_src
+** Type Conversions
+*** blur_trade_to_nft_price
+
+Converts a blur "OrdersMatched" event into an [[#nft_price]] hotdog.
+
+#+begin_src rust
+
+fn blur_trade_to_nft_price(hotdog: &Hotdog) -> Result<Hotdog, &str> {
+    let name = &hotdog.hotdog_name;
+    if name != "OrdersMatched" {
+        return Err("hotdog is not an OrdersMatched hotdog");
+    }
+
+    let map = hotdog.to_hashmap();
+
+    let buy = match map.get("buy") {
+        Some(buy) => buy.clone(),
+        None => return Err(stringify!("map does not contain a buy field {:?}", hotdog))
+    };
+
+    let sell = match map.get("sell") {
+        Some(sell) => sell.clone(),
+        None => return Err(stringify!("map does not contain a sell field {:?}", map))
+    };
+
+    match (buy, sell) {
+        (ValueEnum::MapValue(buy_map), ValueEnum::MapValue(sell_map)) => {
+            let collection = buy_map.keys.get("collection").unwrap().clone();
+            let price = buy_map.keys.get("price").unwrap().clone();
+            let payment_token = buy_map.keys.get("paymentToken").unwrap().clone();
+            let token_id = sell_map.keys.get("tokenId").unwrap().clone();
+            let name = ValueEnum::StringValue("NFTPrice".to_string());
+
+            let mut output_map: HashMap<String, ValueEnum> = HashMap::new();
+            output_map.insert("hotdog_name".to_string(), name.into());
+            output_map.insert("collection".to_string(), collection.into());
+            output_map.insert("price".to_string(), price.into());
+            output_map.insert("payment_token".to_string(), payment_token.into());
+            output_map.insert("token_id".to_string(), token_id.into());
+            Ok(Hotdog::from(output_map))
+        }
+        _ => Err("buy and sell are not maps")
+    }
+}
+#+end_src
+*** seaport_trade_to_nft_price
+Converts a seaport trade into an [[#nft_price]] hotdog
+
+#+begin_src rust
+fn seaport_trade_to_nft_price(hotdog: &Hotdog) -> Result<Hotdog, &str> {
+    todo!()
+}
+#+end_src
+
+* lib.rs
+:PROPERTIES:
+:header-args: :tangle "src/lib.rs"
+:END:
+** Rust Modules
+Literal rust modules we are using
+#+name: lib-modules
+#+begin_src rust
+pub mod helpers;
+mod pb;
+pub mod nft_helpers;
+#+end_src
+** Imports
+#+begin_src rust
+use std::collections::HashMap;
+use nft_helpers::NftPrice;
+use substreams::{pb::substreams::store_delta::Operation, store::{StoreAddBigInt, StoreAdd, StoreGetBigInt, StoreGet}, log::println};
+use helpers::{format_hex, log_to_hotdog, HotdogHelpers};
+use pb::soulbound_modules::v1::{Hotdog, Hotdogs, value::Value as ValueEnum, Value as ValueStruct};
+use substreams::{self, errors::Error as SubstreamError, store::{StoreSetIfNotExists, StoreSetIfNotExistsBigInt, StoreNew, DeltaBigInt, Deltas}, scalar::BigInt};
+use substreams_entity_change::{pb::entity::EntityChanges, tables::Tables};
+use substreams_ethereum::pb::eth::v2 as eth;
+use ethereum_abi::Abi;
+#+end_src
+
+** Substreams Modules
+Functions which represent the modules within the substream
+*** map_events
+This module takes in a param string of the form
+
+"CONTRACT_ADDRESS&&CONTRACT_ABI"
+
+You can repeat this pattern, so long as every contract address has a abi that follows it.
+
+The output of this module will be a [[#Hotdog]]
+
+#+begin_src rust :noweb yes
+// takes an input string of address&&abi*
+#[substreams::handlers::map]
+pub fn map_events(param: String, blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
+    let split: Vec<&str> = param.split("&&").collect();
+
+    if split.len() % 2 != 0 {
+        for item in split {
+            println(format!("item {:?}\n\n\n",item));
+        }
+
+        panic!("Every address needs an ABI");
+    }
+
+    let mut contract_info: HashMap<String, Abi> = HashMap::new();
+
+    for (index, item) in split.iter().enumerate() {
+        if index % 2 == 0 {
+            continue;
+        } else {
+            let address = split[index - 1].to_lowercase();
+            let abi_json = item;
+            let abi = serde_json::from_str(abi_json).unwrap();
+            contract_info.insert(address, abi);
+        }
+    }
+
+    let block_hash = format_hex(&blk.hash);
+    let block_number = blk.number;
+    let block_timestamp = blk
+        .header
+        .clone()
+        .unwrap()
+        .timestamp
+        .unwrap()
+        .seconds
+        .to_string();
+
+    let hotdogs: Vec<Hotdog> = blk
+        .logs()
+        .filter_map(|log| {
+            let emitter = format_hex(log.address());
+            if let Some(abi) = contract_info.get(&emitter) {
+                log_to_hotdog(&log, block_number, &block_timestamp, &block_hash, &abi)
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    Ok(Hotdogs{ hotdogs })
+}
+#+end_src
+
+*** filter_events
+This module takes in some hotdogs, which by default come from the map_events module we defined above.
+
+It also takes in a param string of the form:
+"EVENT_TO_TRACK"
+
+This can be repeated where each event to track is split with &&
+
+IE: "Transfer&&Approval"
+
+#+begin_src rust
+// Takes in a param string of the form
+// Transfer&&Approval
+// Keeps all events that match the names in the param
+#[substreams::handlers::map]
+fn filter_events(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
+    let filtered_names: Vec<&str> = param.split("&&").collect::<Vec<_>>();
+    let mut filtered_hotdogs: Vec<Hotdog> = vec![];
+    for hotdog in hotdogs.hotdogs {
+        if filtered_names.contains(&hotdog.hotdog_name.as_str()) {
+            filtered_hotdogs.push(hotdog.clone());
+        }
+    }
+    Ok(Hotdogs {
+        hotdogs: filtered_hotdogs
+    })
+}
+#+end_src
+*** filter_blur_trades
+:PROPERTIES:
+:CUSTOM_ID: filter_blur_trades
+:END:
+
+This module takes in an input from map_events, and expects it to be tracking the blur marketplace contract.
+
+This module also takes in a param string, which is a collection address or addresses to filter trades by.
+
+IE: "MILADY_ADDRESS&&SOMETHING_ELSE" or "MILADY_ADDRESS"
+
+If you just want all trades from blur, just pass in an empty string.
+
+#+begin_src rust
+// filter all orders by a specific address
+#[substreams::handlers::map]
+fn filter_blur_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
+    let filtered_addresses: Vec<String> = param.split("&&").map(|address| address.to_lowercase()).collect::<Vec<_>>();
+
+    if filtered_addresses.len() == 1 {
+        return Ok(Hotdogs{ hotdogs: hotdogs.hotdogs })
+    }
+
+    let mut filtered_hotdogs: Vec<Hotdog> = vec![];
+
+    for hotdog in hotdogs.hotdogs {
+        if hotdog.hotdog_name != "OrdersMatched" {
+            continue;
+        }
+
+        let map = &hotdog.to_hashmap();
+
+        let buy = match map.get("buy") {
+            Some(buy) => buy.clone(),
+            None => panic!("map does not contain a buy field {:?}", hotdog)
+        };
+
+        let sell = match map.get("sell") {
+            Some(sell) => sell.clone(),
+            None => panic!("map does not contain a sell field {:?}", map)
+        };
+
+        match (buy, sell) {
+            (ValueEnum::MapValue(buy_map), ValueEnum::MapValue(sell_map)) => {
+                let buy_collection = buy_map.keys.get("collection").unwrap().clone();
+                let sell_collection = sell_map.keys.get("collection").unwrap().clone();
+                match (buy_collection.into(), sell_collection.into()) {
+                    (ValueEnum::StringValue(buy_collection), ValueEnum::StringValue(sell_collection)) => {
+                        if filtered_addresses.contains(&buy_collection) || filtered_addresses.contains(&sell_collection) {
+                            filtered_hotdogs.push(hotdog.clone());
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
+        };
+    }
+
+    Ok(Hotdogs {
+        hotdogs: filtered_hotdogs
+    })
+}
+
+#+end_src
+*** blur_trades
+
+This module takes in filter_blur_trades as an input, and converts it to the "type" [[#nft_price]]
+
+#+begin_src rust
+#[substreams::handlers::map]
+pub fn blur_trades(hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
+    let hotdogs = hotdogs.hotdogs.iter().filter_map(|hotdog| {
+       match NftPrice::from_blur(hotdog) {
+              Ok(hotdog) => Some(hotdog),
+              _=> None
+       }
+    }).collect::<Vec<Hotdog>>();
+
+    Ok(Hotdogs {
+        hotdogs
+    })
+}
+#+end_src
+*** seaport_trades
+:PROPERTIES:
+:CUSTOM_ID: seaport_trades
+:END:
+
+Not done yet! But when it is, it will convert a seaport trade into a [[#nft_price]]
+
+#+begin_src rust
+#[substreams::handlers::map]
+pub fn seaport_trades(hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
+    let hotdogs = hotdogs.hotdogs.iter().filter_map(|hotdog| {
+       match NftPrice::from_seaport(hotdog) {
+              Ok(hotdog) => Some(hotdog),
+              _=> None
+       }
+    }).collect::<Vec<Hotdog>>();
+
+    Ok(Hotdogs {
+        hotdogs
+    })
+}
+#+end_src
+
+*** graph_out
+:PROPERTIES:
+:CUSTOM_ID: graph_out
+:END:
+
+*** ownership_distribution
+The idea behind this module is to see who owns what % of an nft collection.
+
+Basically it's just a store that either adds or removes 1 from the from and to address in an nft transfer every time one gets emitted.
+
+It's input should be a map_events
+#+begin_src rust
+#[substreams::handlers::store]
+fn store_ownership_distribution(hotdogs: Hotdogs, s: StoreAddBigInt) {
+    // the hotdogs will be transfer events
+    for hotdog in hotdogs.hotdogs {
+        if hotdog.hotdog_name != "Transfer" {
+            continue;
+        }
+        let map = hotdog.to_hashmap();
+        let from = map.get("from").unwrap().clone();
+        let to = map.get("to").unwrap().clone();
+        let log_index = map.get("log_index").unwrap().clone();
+        match (from, to, log_index) {
+            (ValueEnum::StringValue(from), ValueEnum::StringValue(to), ValueEnum::StringValue(log_index)) => {
+                let log_index = log_index.parse::<u64>().unwrap();
+                s.add(log_index, from, BigInt::from(-1));
+                s.add(log_index, to, BigInt::from(1));
+            }
+            _ => {}
+        }
+    }
+}
+#+end_src
+*** unique_users
+
+This module counts how many unique users have interacted with a contract.
+
+This needs a few modules in order to display nicely however.
+
+**** store_unique_users
+
+stores the unique users in a store by address
+#+begin_src rust
+#[substreams::handlers::store]
+pub fn store_unique_users(hotdogs: Hotdogs, s: StoreSetIfNotExistsBigInt) {
+    for hotdog in hotdogs.hotdogs {
+        let map = hotdog.to_hashmap();
+
+        let from: ValueEnum = map.get("tx_from").unwrap().clone();
+        let to = map.get("tx_to").unwrap().clone();
+
+        if let ValueEnum::StringValue(from) = from {
+            s.set_if_not_exists(0, &from, &BigInt::one());
+        }
+
+        if let ValueEnum::StringValue(to) = to {
+            s.set_if_not_exists(0, &to, &BigInt::one());
+        }
+    }
+}
+#+end_src
+**** count_unique_users
+
+counts how many unique users have interacted with the store.
+
+The way this works is we just add 1 to the store value whenever the delta of the store_unique_users module was a create operation, and do nothing otherwise.
+
+#+begin_src rust
+#[substreams::handlers::store]
+pub fn count_unique_users(unique_users: Deltas<DeltaBigInt>, s: StoreAddBigInt) {
+    for delta in unique_users.deltas {
+        // we only want to add to the total user count if the user is new
+        if let Operation::Create = delta.operation {
+            s.add(0, "unique_user_count", BigInt::one());
+        }
+    }
+}
+#+end_src
+**** map_unique_users
+This reads from the last module, and emits the count within a hotdog
+
+#+begin_src rust
+#[substreams::handlers::map]
+pub fn map_unique_users(user_count: StoreGetBigInt) -> Result<Hotdog, SubstreamError> {
+    if let Some(user_count) = user_count.get_last("unique_user_count") {
+        let mut map: HashMap<String, ValueEnum> = HashMap::new();
+        map.insert("hotdog_name".to_string(), ValueEnum::StringValue("unique_user_count".to_string()));
+        map.insert("unique_user_count".to_string(), ValueEnum::StringValue(user_count.to_string()));
+        Ok(Hotdog::from_hashmap(map))
+    } else {
+        Ok(Hotdog::default())
+    }
+}
+#+end_src
