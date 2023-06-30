@@ -1,14 +1,11 @@
 #+title: Substreams Module repo
 #+date:    2023-06-29
 
-* Tasks [1/5]
-** DONE Build out the literate programming document
-I want to get this all configured correctly, so I am making this a task.
-** TODO Add the seaport nft trade module
-** TODO Add the superrare nft trade module
-** TODO Make the [[#filter_blur_trades]] module hardcoded
-** TODO Complete the [[#seaport_trades]] module
-
+* Tasks [0/4]
+- [ ] Add the seaport nft trade module
+- [ ] Add the superrare nft trade module
+- [ ] Make the [[#filter_blur_trades]] module hardcoded
+- [ ] Complete the [[#seaport_trades]] module
 * Timeframe
 Not really a timeframe yet
 
