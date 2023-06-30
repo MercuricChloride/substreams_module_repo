@@ -1,10 +1,9 @@
 #+title: Substreams Module repo
 #+date:    2023-06-29
 
-* Tasks [0/4]
+* Tasks [1/4]
 - [ ] Add the seaport nft trade module
 - [ ] Add the superrare nft trade module
-- [ ] Make the [[#filter_blur_trades]] module hardcoded
 - [ ] Complete the [[#seaport_trades]] module
 * Timeframe
 Not really a timeframe yet
@@ -131,6 +130,13 @@ binaries:
   default:
     type: wasm/rust-v1
     file: ./target/wasm32-unknown-unknown/release/soulbound_modules.wasm
+#+end_src
+** Params
+#+begin_src yaml
+params:
+  map_events: MAP_EVENTS_PARAMS
+  filter_events: FILTER_EVENTS_PARAMS
+  filter_blur_trades: FILTER_BLUR_TRADES_PARAMS
 #+end_src
 ** Modules
 The module yaml config are exported within the module definition located at [[#substream_modules]]

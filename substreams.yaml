@@ -18,6 +18,11 @@ binaries:
     type: wasm/rust-v1
     file: ./target/wasm32-unknown-unknown/release/soulbound_modules.wasm
 
+params:
+  map_events: MAP_EVENTS_PARAMS
+  filter_events: FILTER_EVENTS_PARAMS
+  filter_blur_trades: FILTER_BLUR_TRADES_PARAMS
+
 modules:
 
   - name: map_events
