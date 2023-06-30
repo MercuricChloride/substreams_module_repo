@@ -19,6 +19,7 @@ binaries:
     file: ./target/wasm32-unknown-unknown/release/soulbound_modules.wasm
 
 modules:
+
   - name: map_events
     kind: map
     inputs:
@@ -35,6 +36,13 @@ modules:
     output:
       type: proto:soulbound_modules.v1.Hotdogs
 
+  - name: all_blur_trades
+    kind: map
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:soulbound_modules.v1.Hotdogs
+
   - name: filter_blur_trades
     kind: map
     inputs:
@@ -46,9 +54,24 @@ modules:
   - name: blur_trades
     kind: map
     inputs:
-      - map: filter_blur_trades
+      #- map: filter_blur_trades
+      - map: all_blur_trades
     output:
       type: proto:soulbound_modules.v1.Hotdogs
+
+  - name: graph_out
+    kind: map
+    inputs:
+      - map: map_events
+    output:
+      type: proto:substreams.entity.v1.EntityChanges
+
+  - name: ownership_distribution
+    kind: store
+    updatePolicy: add
+    valueType: bigint
+    inputs:
+      - map: map_events
 
   - name: store_unique_users
     kind: store
@@ -72,15 +95,3 @@ modules:
         mode: get
     output:
       type: proto:soulbound_modules.v1.Hotdog
-
-  - name: graph_out
-    kind: map
-    inputs:
-      - map: map_events
-    output:
-      type: proto:substreams.entity.v1.EntityChanges
-
-params:
-  map_events: MAP_EVENTS_PARAMS
-  filter_events: FILTER_EVENTS_PARAMS
-  filter_blur_trades: FILTER_BLUR_TRADES_PARAMS

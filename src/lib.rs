@@ -1,11 +1,12 @@
 pub mod helpers;
 mod pb;
 pub mod nft_helpers;
+mod abi_constants;
 
 use std::collections::HashMap;
 use nft_helpers::NftPrice;
 use substreams::{pb::substreams::store_delta::Operation, store::{StoreAddBigInt, StoreAdd, StoreGetBigInt, StoreGet}, log::println};
-use helpers::{format_hex, log_to_hotdog, HotdogHelpers};
+use helpers::{format_hex, log_to_hotdog, HotdogHelpers, UpdateTables};
 use pb::soulbound_modules::v1::{Hotdog, Hotdogs, value::Value as ValueEnum, Value as ValueStruct};
 use substreams::{self, errors::Error as SubstreamError, store::{StoreSetIfNotExists, StoreSetIfNotExistsBigInt, StoreNew, DeltaBigInt, Deltas}, scalar::BigInt};
 use substreams_entity_change::{pb::entity::EntityChanges, tables::Tables};
@@ -79,6 +80,42 @@ fn filter_events(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamEr
     Ok(Hotdogs {
         hotdogs: filtered_hotdogs
     })
+}
+
+#[substreams::handlers::map]
+pub fn all_blur_trades(blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
+    let mut contract_info: HashMap<String, Abi> = HashMap::new();
+
+    // Blur address
+    let blur_address = "0x000000000000Ad05Ccc4F10045630fb830B95127".to_lowercase().to_string();
+    let blur_abi = serde_json::from_str(abi_constants::BLUR).unwrap();
+
+    contract_info.insert(blur_address, blur_abi);
+
+    let block_hash = format_hex(&blk.hash);
+    let block_number = blk.number;
+    let block_timestamp = blk
+        .header
+        .clone()
+        .unwrap()
+        .timestamp
+        .unwrap()
+        .seconds
+        .to_string();
+
+    let hotdogs: Vec<Hotdog> = blk
+        .logs()
+        .filter_map(|log| {
+            let emitter = format_hex(log.address());
+            if let Some(abi) = contract_info.get(&emitter) {
+                log_to_hotdog(&log, block_number, &block_timestamp, &block_hash, &abi)
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    Ok(Hotdogs{ hotdogs })
 }
 
 // filter all orders by a specific address
@@ -157,6 +194,20 @@ pub fn seaport_trades(hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
     Ok(Hotdogs {
         hotdogs
     })
+}
+
+#[substreams::handlers::map]
+pub fn graph_out(hotdogs: Hotdogs) -> Result<EntityChanges, SubstreamError> {
+
+    let mut tables = Tables::new();
+
+    for hotdog in hotdogs.hotdogs {
+        hotdog.update_tables(&mut tables);
+        //let map = hotdog.to_hashmap();
+        //update_tables(map, &mut tables, None, None);
+    }
+
+    Ok(tables.to_entity_changes())
 }
 
 #[substreams::handlers::store]

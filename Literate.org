@@ -14,7 +14,6 @@ This is a test of literate programming with lsp-mode in emacs
 
 To edit something, execute (lsp-org) within a code block
 To finish editing a block, execute (lsp-virtual-buffer-disconnect)
-
 ** Hotdog "types"
 :PROPERTIES:
 :CUSTOM_ID: hotdog_types
@@ -30,6 +29,19 @@ The reason for this, is let's say you want to display NFT price data on a dashbo
 If we instead have a hotdog that has keys already there for the price data, IE collection address, payment token, price, and token id, we don't have to worry about this.
 
 It might make sense to just build these out as standalone protobufs, but for now I think it's fine as a hotdog.
+** Hardcoded Modules
+Certain modules I think would benefit from hardcoding the ABI and maybe address inside.
+
+Things like the blur and seaport modules.
+
+To do this, within a [[*build_script]], I will need to run some kind of ABI decoder. Or I could just write the ABI to an exported static constant variable.
+
+I kind of like the exported static constant approach the most. Then decode them at runtime.
+
+*** Why not just do the ABI_GEN like the substreams example repo has?
+The reason for this is because the binding generation they showed, does not support super complex event types, with say, nested tuples.
+
+So it wont' work for now, but maybe soon!
 
 * Protobufs
 ** Hotdogs
@@ -84,6 +96,82 @@ I am not sure exactly where to put this section. Because it is really more of a 
 But I have this idea of "hotdog types", where we have some unit structs, which have helpers going from and to this type. But they never aren't hotdogs.
 
 The first example of this is the [[#nft_price][Nft Price]] type
+* Substreams Yaml
+:PROPERTIES:
+:header-args: :tangle substreams.yaml
+:END:
+The main config for our substream
+
+** Spec version and name
+#+begin_src yaml
+specVersion: v0.1.0
+package:
+  name: "soulbound_modules"
+  version: v0.1.0
+#+end_src
+
+** Imports
+#+begin_src yaml
+imports:
+  entities_change: https://github.com/streamingfast/substreams-entity-change/releases/download/v0.2.1/substreams-entity-change-v0.2.1.spkg
+  database_change: https://github.com/streamingfast/substreams-database-change/releases/download/v1.0.0/substreams-database-change-v1.0.0.spkg
+#+end_src
+** Protobuf definitions
+#+begin_src yaml
+protobuf:
+  files:
+    - soulbound.proto
+  importPaths:
+    - ./proto
+#+end_src
+** Binary export
+
+#+begin_src yaml
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ./target/wasm32-unknown-unknown/release/soulbound_modules.wasm
+#+end_src
+** Modules
+The module yaml config are exported within the module definition located at [[#substream_modules]]
+
+#+begin_src yaml
+modules:
+#+end_src
+
+* build.rs
+:PROPERTIES:
+:CUSTOM_ID: build_script
+:header-args: :tangle "build.rs"
+:END:
+** Imports
+
+#+begin_src rust
+use std::fs;
+use std::io::Write;
+use std::path::Path;
+#+end_src
+** Abi Strings
+
+So we need to read each ABI, and write it to some constant file, and import it within the [[*lib.rs]] file.
+
+#+begin_src rust
+
+fn main() {
+    // for each file within the abis/ dir, we need to write it as a constant string within src/abi_constants.rs file
+    let path = Path::new("./abis");
+    let files = fs::read_dir(path).unwrap();
+    let mut abi_constants = String::new();
+    for file in files  {
+        let path = file.unwrap().path();
+        let file_contents = fs::read_to_string(&path).unwrap();
+        let file_name = path.file_stem().unwrap().to_str().unwrap().to_uppercase();
+        abi_constants.push_str(&format!("pub const {}: &str = r#\"{}\"#;\n", file_name, file_contents));
+    }
+
+    fs::write("./src/abi_constants.rs", abi_constants).unwrap();
+}
+#+end_src
 
 * helpers.rs
 :PROPERTIES:
@@ -315,7 +403,7 @@ The update tables trait is used to give the hotdog the ability to update postgre
 This is used within the [[#graph_out]] module
 
 #+begin_src rust
-trait UpdateTables {
+pub trait UpdateTables {
     fn create_id(&self) -> String;
     fn update_tables(&self, tables: &mut Tables);
 }
@@ -521,13 +609,14 @@ Literal rust modules we are using
 pub mod helpers;
 mod pb;
 pub mod nft_helpers;
+mod abi_constants;
 #+end_src
 ** Imports
 #+begin_src rust
 use std::collections::HashMap;
 use nft_helpers::NftPrice;
 use substreams::{pb::substreams::store_delta::Operation, store::{StoreAddBigInt, StoreAdd, StoreGetBigInt, StoreGet}, log::println};
-use helpers::{format_hex, log_to_hotdog, HotdogHelpers};
+use helpers::{format_hex, log_to_hotdog, HotdogHelpers, UpdateTables};
 use pb::soulbound_modules::v1::{Hotdog, Hotdogs, value::Value as ValueEnum, Value as ValueStruct};
 use substreams::{self, errors::Error as SubstreamError, store::{StoreSetIfNotExists, StoreSetIfNotExistsBigInt, StoreNew, DeltaBigInt, Deltas}, scalar::BigInt};
 use substreams_entity_change::{pb::entity::EntityChanges, tables::Tables};
@@ -536,6 +625,9 @@ use ethereum_abi::Abi;
 #+end_src
 
 ** Substreams Modules
+:PROPERTIES:
+:CUSTOM_ID: substream_modules
+:END:
 Functions which represent the modules within the substream
 *** map_events
 This module takes in a param string of the form
@@ -546,6 +638,7 @@ You can repeat this pattern, so long as every contract address has a abi that fo
 
 The output of this module will be a [[#Hotdog]]
 
+**** Rust Code
 #+begin_src rust :noweb yes
 // takes an input string of address&&abi*
 #[substreams::handlers::map]
@@ -599,6 +692,16 @@ pub fn map_events(param: String, blk: eth::Block) -> Result<Hotdogs, SubstreamEr
     Ok(Hotdogs{ hotdogs })
 }
 #+end_src
+**** Yaml Definition
+#+begin_src yaml :tangle "substreams.yaml"
+  - name: map_events
+    kind: map
+    inputs:
+      - params: string
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:soulbound_modules.v1.Hotdogs
+#+end_src
 
 *** filter_events
 This module takes in some hotdogs, which by default come from the map_events module we defined above.
@@ -610,6 +713,7 @@ This can be repeated where each event to track is split with &&
 
 IE: "Transfer&&Approval"
 
+**** Rust Code
 #+begin_src rust
 // Takes in a param string of the form
 // Transfer&&Approval
@@ -628,6 +732,69 @@ fn filter_events(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamEr
     })
 }
 #+end_src
+**** Yaml Definition
+#+begin_src yaml :tangle "substreams.yaml"
+  - name: filter_events
+    kind: map
+    inputs:
+      - params: string
+      - map: map_events
+    output:
+      type: proto:soulbound_modules.v1.Hotdogs
+#+end_src
+*** all_blur_trades
+This module is the hardcoded source of all blur trades. It will replace the map_events input for [[*filter_blur_trades]]
+
+It is super similar to [[*map_events]] in how it operates, just hardcoded is all :)
+
+**** Rust Code
+#+begin_src rust +n
+#[substreams::handlers::map]
+pub fn all_blur_trades(blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
+    let mut contract_info: HashMap<String, Abi> = HashMap::new();
+
+    // Blur address
+    let blur_address = "0x000000000000Ad05Ccc4F10045630fb830B95127".to_lowercase().to_string();
+    let blur_abi = serde_json::from_str(abi_constants::BLUR).unwrap();
+
+    contract_info.insert(blur_address, blur_abi);
+
+    let block_hash = format_hex(&blk.hash);
+    let block_number = blk.number;
+    let block_timestamp = blk
+        .header
+        .clone()
+        .unwrap()
+        .timestamp
+        .unwrap()
+        .seconds
+        .to_string();
+
+    let hotdogs: Vec<Hotdog> = blk
+        .logs()
+        .filter_map(|log| {
+            let emitter = format_hex(log.address());
+            if let Some(abi) = contract_info.get(&emitter) {
+                log_to_hotdog(&log, block_number, &block_timestamp, &block_hash, &abi)
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    Ok(Hotdogs{ hotdogs })
+}
+#+end_src
+**** Yaml Definition
+#+begin_src yaml :tangle substreams.yaml
+  - name: all_blur_trades
+    kind: map
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:soulbound_modules.v1.Hotdogs
+#+end_src
+
 *** filter_blur_trades
 :PROPERTIES:
 :CUSTOM_ID: filter_blur_trades
@@ -641,6 +808,7 @@ IE: "MILADY_ADDRESS&&SOMETHING_ELSE" or "MILADY_ADDRESS"
 
 If you just want all trades from blur, just pass in an empty string.
 
+**** Rust Code
 #+begin_src rust
 // filter all orders by a specific address
 #[substreams::handlers::map]
@@ -693,10 +861,21 @@ fn filter_blur_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, Substr
 }
 
 #+end_src
+**** Yaml Definition
+#+begin_src yaml :tangle substreams.yaml
+  - name: filter_blur_trades
+    kind: map
+    inputs:
+      - params: string
+      - map: map_events
+    output:
+      type: proto:soulbound_modules.v1.Hotdogs
+#+end_src
 *** blur_trades
 
 This module takes in filter_blur_trades as an input, and converts it to the "type" [[#nft_price]]
 
+**** Rust Code
 #+begin_src rust
 #[substreams::handlers::map]
 pub fn blur_trades(hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
@@ -712,6 +891,16 @@ pub fn blur_trades(hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
     })
 }
 #+end_src
+**** Yaml Definition
+#+begin_src yaml :tangle substreams.yaml
+  - name: blur_trades
+    kind: map
+    inputs:
+      #- map: filter_blur_trades
+      - map: all_blur_trades
+    output:
+      type: proto:soulbound_modules.v1.Hotdogs
+#+end_src
 *** seaport_trades
 :PROPERTIES:
 :CUSTOM_ID: seaport_trades
@@ -719,6 +908,7 @@ pub fn blur_trades(hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
 
 Not done yet! But when it is, it will convert a seaport trade into a [[#nft_price]]
 
+**** Rust Code
 #+begin_src rust
 #[substreams::handlers::map]
 pub fn seaport_trades(hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
@@ -735,17 +925,59 @@ pub fn seaport_trades(hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
 }
 #+end_src
 
+**** Yaml Definition
+#+begin_src yaml :tangle substreams.yaml :tangle no
+  - name: seaport_trades
+    kind: map
+    inputs:
+      - map: filter_seaport_trades
+    output:
+      type: proto:soulbound_modules.v1.Hotdogs
+#+end_src
+
 *** graph_out
 :PROPERTIES:
 :CUSTOM_ID: graph_out
 :END:
 
+This module converts a bunch of hotdogs to the appropriate entity changes within a postgres table.
+
+The entity name according to the graphql schema should be the same as the hotdog name, otherwise an error will throw.
+
+The module takes in input of map_events by default, but works with any hotdog.
+
+**** Rust Code
+#+begin_src rust
+#[substreams::handlers::map]
+pub fn graph_out(hotdogs: Hotdogs) -> Result<EntityChanges, SubstreamError> {
+
+    let mut tables = Tables::new();
+
+    for hotdog in hotdogs.hotdogs {
+        hotdog.update_tables(&mut tables);
+        //let map = hotdog.to_hashmap();
+        //update_tables(map, &mut tables, None, None);
+    }
+
+    Ok(tables.to_entity_changes())
+}
+#+end_src
+**** Yaml Definition
+#+begin_src yaml :tangle substreams.yaml
+  - name: graph_out
+    kind: map
+    inputs:
+      - map: map_events
+    output:
+      type: proto:substreams.entity.v1.EntityChanges
+#+end_src
 *** ownership_distribution
 The idea behind this module is to see who owns what % of an nft collection.
 
 Basically it's just a store that either adds or removes 1 from the from and to address in an nft transfer every time one gets emitted.
 
 It's input should be a map_events
+**** Rust Code
 #+begin_src rust
 #[substreams::handlers::store]
 fn store_ownership_distribution(hotdogs: Hotdogs, s: StoreAddBigInt) {
@@ -769,6 +1001,15 @@ fn store_ownership_distribution(hotdogs: Hotdogs, s: StoreAddBigInt) {
     }
 }
 #+end_src
+**** Yaml Definition
+#+begin_src yaml :tangle substreams.yaml
+  - name: ownership_distribution
+    kind: store
+    updatePolicy: add
+    valueType: bigint
+    inputs:
+      - map: map_events
+#+end_src
 *** unique_users
 
 This module counts how many unique users have interacted with a contract.
@@ -778,6 +1019,7 @@ This needs a few modules in order to display nicely however.
 **** store_unique_users
 
 stores the unique users in a store by address
+***** Rust Code
 #+begin_src rust
 #[substreams::handlers::store]
 pub fn store_unique_users(hotdogs: Hotdogs, s: StoreSetIfNotExistsBigInt) {
@@ -797,12 +1039,22 @@ pub fn store_unique_users(hotdogs: Hotdogs, s: StoreSetIfNotExistsBigInt) {
     }
 }
 #+end_src
+***** Yaml Definition
+#+begin_src yaml :tangle substreams.yaml
+  - name: store_unique_users
+    kind: store
+    updatePolicy: set_if_not_exists
+    valueType: bigint
+    inputs:
+      - map: map_events
+#+end_src
 **** count_unique_users
 
 counts how many unique users have interacted with the store.
 
 The way this works is we just add 1 to the store value whenever the delta of the store_unique_users module was a create operation, and do nothing otherwise.
 
+***** Rust Code
 #+begin_src rust
 #[substreams::handlers::store]
 pub fn count_unique_users(unique_users: Deltas<DeltaBigInt>, s: StoreAddBigInt) {
@@ -814,9 +1066,20 @@ pub fn count_unique_users(unique_users: Deltas<DeltaBigInt>, s: StoreAddBigInt) 
     }
 }
 #+end_src
+***** Yaml definition
+#+begin_src yaml :tangle substreams.yaml
+  - name: count_unique_users
+    kind: store
+    updatePolicy: add
+    valueType: bigint
+    inputs:
+      - store: store_unique_users
+        mode: deltas
+#+end_src
 **** map_unique_users
 This reads from the last module, and emits the count within a hotdog
 
+***** Rust Code
 #+begin_src rust
 #[substreams::handlers::map]
 pub fn map_unique_users(user_count: StoreGetBigInt) -> Result<Hotdog, SubstreamError> {
@@ -829,4 +1092,14 @@ pub fn map_unique_users(user_count: StoreGetBigInt) -> Result<Hotdog, SubstreamE
         Ok(Hotdog::default())
     }
 }
+#+end_src
+***** Yaml Definition
+#+begin_src yaml :tangle substreams.yaml
+  - name: map_unique_users
+    kind: map
+    inputs:
+      - store: count_unique_users
+        mode: get
+    output:
+      type: proto:soulbound_modules.v1.Hotdog
 #+end_src

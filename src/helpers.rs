@@ -168,7 +168,7 @@ pub fn add_tx_meta(
     );
 }
 
-trait UpdateTables {
+pub trait UpdateTables {
     fn create_id(&self) -> String;
     fn update_tables(&self, tables: &mut Tables);
 }
