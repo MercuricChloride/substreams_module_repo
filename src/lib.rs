@@ -63,6 +63,8 @@ pub fn map_events(param: String, blk: eth::Block) -> Result<Hotdogs, SubstreamEr
         .collect();
 
     Ok(Hotdogs{ hotdogs })
+
+
 }
 
 // Takes in a param string of the form
@@ -179,6 +181,114 @@ pub fn blur_trades(hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
 
     Ok(Hotdogs {
         hotdogs
+    })
+}
+
+#[substreams::handlers::map]
+pub fn all_seaport_trades(blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
+    let mut contract_info: HashMap<String, Abi> = HashMap::new();
+
+    // seaport address
+    let seaport_address = "0x00000000000000ADc04C56Bf30aC9d3c0aAF14dC".to_lowercase().to_string();
+    let seaport_abi = serde_json::from_str(abi_constants::SEAPORT).unwrap();
+
+    contract_info.insert(seaport_address, seaport_abi);
+    
+    let block_hash = format_hex(&blk.hash);
+    let block_number = blk.number;
+    let block_timestamp = blk
+        .header
+        .clone()
+        .unwrap()
+        .timestamp
+        .unwrap()
+        .seconds
+        .to_string();
+
+    let hotdogs: Vec<Hotdog> = blk
+        .logs()
+        .filter_map(|log| {
+            let emitter = format_hex(log.address());
+            if let Some(abi) = contract_info.get(&emitter) {
+                log_to_hotdog(&log, block_number, &block_timestamp, &block_hash, &abi)
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    Ok(Hotdogs{ hotdogs })
+}
+
+// filter all orders by a specific address
+#[substreams::handlers::map]
+fn filter_seaport_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
+    let filtered_addresses: Vec<String> = param.split("&&").map(|address| address.to_lowercase()).collect::<Vec<_>>();
+
+    if filtered_addresses.len() == 1 {
+        return Ok(Hotdogs{ hotdogs: hotdogs.hotdogs })
+    }
+
+    let mut filtered_hotdogs: Vec<Hotdog> = vec![];
+
+    for hotdog in hotdogs.hotdogs {
+        if hotdog.hotdog_name != "OrderFulfilled" {
+            continue;
+        }
+
+        let map = &hotdog.to_hashmap();
+
+        let consideration = match map.get("consideration") {
+            Some(consideration) => consideration.clone(),
+            None => panic!("map does not contain a consideration field {:?}", hotdog)
+        };
+
+        let offer = match map.get("offer") {
+            Some(offer) => offer.clone(),
+            None => panic!("map does not contain a offer field {:?}", map)
+        };
+
+        match (consideration, offer) {
+            (ValueEnum::MapValue(consideration), ValueEnum::MapValue(offer)) => {
+                // the event field "offer" is an array of offers, this is what is being purchased
+                for (index, value) in offer.keys.iter() {
+                    let value:HashMap<String,ValueEnum> = match value.clone().into() {
+                        ValueEnum::MapValue(value) => value.into(),
+                        _ => continue
+                    };
+                    let collection = value.get("token").unwrap().clone();
+                    match collection {
+                        ValueEnum::StringValue(collection) => {
+                            if filtered_addresses.contains(&collection) {
+                                filtered_hotdogs.push(hotdog.clone());
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                // the event field "consideration" is an array of considerations, this is what is being sold to purchase the offer
+                for (index, value) in consideration.keys.iter() {
+                    let value:HashMap<String,ValueEnum> = match value.clone().into() {
+                        ValueEnum::MapValue(value) => value.into(),
+                        _ => continue
+                    };
+                    let collection = value.get("token").unwrap().clone();
+                    match collection {
+                        ValueEnum::StringValue(collection) => {
+                            if filtered_addresses.contains(&collection) {
+                                filtered_hotdogs.push(hotdog.clone());
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            _ => {}
+        };
+    }
+
+    Ok(Hotdogs {
+        hotdogs: filtered_hotdogs
     })
 }
 

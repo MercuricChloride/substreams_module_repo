@@ -52,15 +52,37 @@ modules:
     kind: map
     inputs:
       - params: string
-      - map: map_events
+      - map: all_blur_trades
+      #- map: map_events
     output:
       type: proto:soulbound_modules.v1.Hotdogs
 
   - name: blur_trades
     kind: map
     inputs:
-      #- map: filter_blur_trades
-      - map: all_blur_trades
+      - map: filter_blur_trades
+    output:
+      type: proto:soulbound_modules.v1.Hotdogs
+
+  - name: all_seaport_trades
+    kind: map
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:soulbound_modules.v1.Hotdogs
+
+  - name: filter_seaport_trades
+    kind: map
+    inputs:
+      - params: string
+      - map: all_seaport_trades
+    output:
+      type: proto:soulbound_modules.v1.Hotdogs
+
+  - name: seaport_trades
+    kind: map
+    inputs:
+      - map: filter_seaport_trades
     output:
       type: proto:soulbound_modules.v1.Hotdogs
 
