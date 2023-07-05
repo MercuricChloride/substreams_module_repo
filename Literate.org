@@ -1,22 +1,14 @@
 #+title: Substreams Module repo
 #+date:    2023-06-29
 
-* Tasks [2/6]
-** TODO Add the superrare nft trade module
-** TODO Figure out why the filter_blur_trades module doesn't work with 1 input address
-** TODO Add some new modules for DAOs
-I have some ideas regarding interesting modules for daos.
-
-Such as tracking ownership supply, as well as who is dumping what.
-** TODO Make a plan on how to handle multi for multi trades with the seaport contracts
-Right now we are only handling trades from seaport if there is a single collection someone is trading for.
-
-We should probably also add support for many to many swaps
-** DONE Add the seaport nft trade module
-** DONE Complete the [[#seaport_trades]] module
-* Timeframe
-Not really a timeframe yet
-
+* Tasks [0/4]
+- [ ] Add the superrare nft trade module
+- [ ] Figure out why the filter_blur_trades module doesn't work with 1 input address
+- [ ] Add some new modules for DAOs
+      I have some ideas regarding interesting modules for daos. Such as tracking ownership supply, as well as who is dumping what.
+- [ ] Make a plan on how to handle multi for multi trades with the seaport contracts
+      Right now we are only handling trades from seaport if there is a single collection someone is trading for.
+      We should probably also add support for many to many swaps
 * Notes
 This is a test of literate programming with lsp-mode in emacs
 
@@ -947,7 +939,7 @@ This module is the hardcoded source of all blur trades. It will replace the map_
 It is super similar to [[*map_events]] in how it operates, just hardcoded is all :)
 
 **** Rust Code
-#+begin_src rust +n
+#+begin_src rust
 #[substreams::handlers::map]
 pub fn all_blur_trades(blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
     let mut contract_info: HashMap<String, Abi> = HashMap::new();
