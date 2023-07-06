@@ -1544,3 +1544,63 @@ pub fn etherscan_overview(param: String, blk: eth::Block) -> Result<Hotdogs, Sub
     output:
       type: proto:soulbound_modules.v1.Hotdogs
 #+end_src
+
+*** gas_guzzlers
+This module just tracks how much gas each contract is using
+
+**** Rust Code
+#+begin_src rust
+// takes an input string of address&&abi*
+#[substreams::handlers::map]
+pub fn gas_guzzlers(blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
+    let block_hash = format_hex(&blk.hash);
+    let block_number = blk.number;
+    let block_timestamp = blk
+        .header
+        .clone()
+        .unwrap()
+        .timestamp
+        .unwrap()
+        .seconds
+        .to_string();
+
+    let hotdogs: Vec<Hotdog> = blk
+        .transaction_traces
+        .iter()
+        .filter_map(|transaction| {
+            let from = format_hex(&transaction.from);
+            let to = format_hex(&transaction.to);
+            if transaction.input.len() < 4 {
+                return None;
+            }
+            let method_signature = format_hex(&transaction.input[0..4]);
+            let gas = transaction.gas_used;
+
+            let mut output_map: HashMap<String, ValueEnum> = HashMap::new();
+            // TODO add the tx meta stuff
+            output_map.insert("hotdog_name".to_string(), ValueEnum::StringValue("etherscan_overview".to_string()));
+            output_map.insert("from".to_string(), ValueEnum::StringValue(from));
+            output_map.insert("contract_address".to_string(), ValueEnum::StringValue(to));
+            output_map.insert("method".to_string(), ValueEnum::StringValue(method_signature));
+            output_map.insert("block_hash".to_string(), ValueEnum::StringValue(block_hash.clone()));
+            output_map.insert("block_number".to_string(), ValueEnum::Uint64Value(block_number));
+            output_map.insert("block_timestamp".to_string(), ValueEnum::Uint64Value(block_timestamp.parse::<u64>().unwrap()));
+            output_map.insert("gas_used".to_string(), ValueEnum::Uint64Value(gas));
+            Some(Hotdog::from(output_map))
+        })
+        .collect();
+
+    Ok(Hotdogs{ hotdogs })
+
+
+}
+#+end_src
+**** Yaml Definition
+#+begin_src yaml :tangle substreams.yaml
+  - name: gas_guzzlers
+    kind: map
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:soulbound_modules.v1.Hotdogs
+#+end_src

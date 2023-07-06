@@ -132,3 +132,10 @@ modules:
       - source: sf.ethereum.type.v2.Block
     output:
       type: proto:soulbound_modules.v1.Hotdogs
+
+  - name: gas_guzzlers
+    kind: map
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:soulbound_modules.v1.Hotdogs
