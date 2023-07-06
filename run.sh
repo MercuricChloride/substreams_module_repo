@@ -23,9 +23,10 @@ cp substreams.yaml substreams.yaml.bak
 sed -i "s/MAP_EVENTS_PARAMS/$map_events_input/g" substreams.yaml
 sed -i "s/FILTER_EVENTS_PARAMS/$filter_events_input/g" substreams.yaml
 sed -i "s/FILTER_BLUR_TRADES_PARAMS/$filter_blur_trades_input/g" substreams.yaml
+sed -i "s/ETHERSCAN_OVERVIEW_PARAMS/$map_events_input/g" substreams.yaml
 
 # run the substream
-substreams run seaport_trades \
+substreams run etherscan_overview \
 --start-block 17252197 \
 --stop-block +200
 

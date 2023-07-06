@@ -22,6 +22,7 @@ params:
   map_events: MAP_EVENTS_PARAMS
   filter_events: FILTER_EVENTS_PARAMS
   filter_blur_trades: FILTER_BLUR_TRADES_PARAMS
+  etherscan_overview: ETHERSCAN_OVERVIEW_PARAMS
   #filter_blur_trades: "0x5Af0D9827E0c53E4799BB226655A1de152A425a5&&0x5Af0D9827E0c53E4799BB226655A1de152A425a5"
 
 modules:
@@ -123,3 +124,11 @@ modules:
         mode: get
     output:
       type: proto:soulbound_modules.v1.Hotdog
+
+  - name: etherscan_overview
+    kind: map
+    inputs:
+      - params: string
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:soulbound_modules.v1.Hotdogs

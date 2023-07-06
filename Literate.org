@@ -1,7 +1,7 @@
-#+title: Substreams Module repo
+#+title: Substreams Module Repo
 #+date:    2023-06-29
 
-* Tasks [0/4]
+* Tasks [0/5]
 - [ ] Add the superrare nft trade module
 - [ ] Figure out why the filter_blur_trades module doesn't work with 1 input address
 - [ ] Add some new modules for DAOs
@@ -9,6 +9,7 @@
 - [ ] Make a plan on how to handle multi for multi trades with the seaport contracts
       Right now we are only handling trades from seaport if there is a single collection someone is trading for.
       We should probably also add support for many to many swaps
+- [ ] Add EOA support to the [[*etherscan_overview]] module
 * Notes
 This is a test of literate programming with lsp-mode in emacs
 
@@ -140,6 +141,7 @@ params:
   map_events: MAP_EVENTS_PARAMS
   filter_events: FILTER_EVENTS_PARAMS
   filter_blur_trades: FILTER_BLUR_TRADES_PARAMS
+  etherscan_overview: ETHERSCAN_OVERVIEW_PARAMS
   #filter_blur_trades: "0x5Af0D9827E0c53E4799BB226655A1de152A425a5&&0x5Af0D9827E0c53E4799BB226655A1de152A425a5"
 #+end_src
 ** Modules
@@ -1435,4 +1437,89 @@ pub fn map_unique_users(user_count: StoreGetBigInt) -> Result<Hotdog, SubstreamE
         mode: get
     output:
       type: proto:soulbound_modules.v1.Hotdog
+#+end_src
+*** etherscan_overview
+This idea here is to build a module which mimics what you see on the etherscan overview page for a smart contract. As seen [[https://etherscan.io/address/0x000000000000ad05ccc4f10045630fb830b95127][here]]
+
+This module will also include support for general EOA's, however for now I want to build for what people will mainly use.
+
+This module takes in an input identical to [[*map_events]], the form of "ADDRESS&&ABI"
+
+**** Rust Code
+#+begin_src rust
+// takes an input string of address&&abi*
+#[substreams::handlers::map]
+pub fn etherscan_overview(param: String, blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
+    let split: Vec<&str> = param.split("&&").collect();
+
+    let mut contract_info: HashMap<String, Abi> = HashMap::new();
+
+    for (index, item) in split.iter().enumerate() {
+        if index % 2 == 0 {
+            continue;
+        } else {
+            let address = split[index - 1].to_lowercase();
+            let abi_json = item;
+            let abi = serde_json::from_str(abi_json).unwrap();
+            contract_info.insert(address, abi);
+        }
+    }
+
+    let block_hash = format_hex(&blk.hash);
+    let block_number = blk.number;
+    let block_timestamp = blk
+        .header
+        .clone()
+        .unwrap()
+        .timestamp
+        .unwrap()
+        .seconds
+        .to_string();
+
+    let hotdogs: Vec<Hotdog> = blk
+        .transaction_traces
+        .iter()
+        .filter_map(|transaction| {
+            let from = format_hex(&transaction.from);
+            let to = format_hex(&transaction.to);
+            if transaction.input.len() < 4 {
+                return None;
+            }
+            let method_signature = format_hex(&transaction.input[0..4]);
+            if let Some(abi) = contract_info.get(&from) {
+                let mut output_map: HashMap<String, ValueEnum> = HashMap::new();
+                // TODO add the tx meta stuff
+                output_map.insert("hotdog_name".to_string(), ValueEnum::StringValue("etherscan_overview".to_string()));
+                output_map.insert("from".to_string(), ValueEnum::StringValue(from));
+                output_map.insert("to".to_string(), ValueEnum::StringValue(to));
+                output_map.insert("method".to_string(), ValueEnum::StringValue(method_signature));
+                Some(Hotdog::from(output_map))
+            } else if let Some(abi) = contract_info.get(&to) {
+                let mut output_map: HashMap<String, ValueEnum> = HashMap::new();
+                // TODO add the tx meta stuff
+                output_map.insert("hotdog_name".to_string(), ValueEnum::StringValue("etherscan_overview".to_string()));
+                output_map.insert("from".to_string(), ValueEnum::StringValue(from));
+                output_map.insert("to".to_string(), ValueEnum::StringValue(to));
+                output_map.insert("method".to_string(), ValueEnum::StringValue(method_signature));
+                Some(Hotdog::from(output_map))
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    Ok(Hotdogs{ hotdogs })
+
+
+}
+#+end_src
+**** Yaml Definition
+#+begin_src yaml :tangle substreams.yaml
+  - name: etherscan_overview
+    kind: map
+    inputs:
+      - params: string
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:soulbound_modules.v1.Hotdogs
 #+end_src

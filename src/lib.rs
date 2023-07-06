@@ -381,3 +381,69 @@ pub fn map_unique_users(user_count: StoreGetBigInt) -> Result<Hotdog, SubstreamE
         Ok(Hotdog::default())
     }
 }
+
+// takes an input string of address&&abi*
+#[substreams::handlers::map]
+pub fn etherscan_overview(param: String, blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
+    let split: Vec<&str> = param.split("&&").collect();
+
+    let mut contract_info: HashMap<String, Abi> = HashMap::new();
+
+    for (index, item) in split.iter().enumerate() {
+        if index % 2 == 0 {
+            continue;
+        } else {
+            let address = split[index - 1].to_lowercase();
+            let abi_json = item;
+            let abi = serde_json::from_str(abi_json).unwrap();
+            contract_info.insert(address, abi);
+        }
+    }
+
+    let block_hash = format_hex(&blk.hash);
+    let block_number = blk.number;
+    let block_timestamp = blk
+        .header
+        .clone()
+        .unwrap()
+        .timestamp
+        .unwrap()
+        .seconds
+        .to_string();
+
+    let hotdogs: Vec<Hotdog> = blk
+        .transaction_traces
+        .iter()
+        .filter_map(|transaction| {
+            let from = format_hex(&transaction.from);
+            let to = format_hex(&transaction.to);
+            if transaction.input.len() < 4 {
+                return None;
+            }
+            let method_signature = format_hex(&transaction.input[0..4]);
+            if let Some(abi) = contract_info.get(&from) {
+                let mut output_map: HashMap<String, ValueEnum> = HashMap::new();
+                // TODO add the tx meta stuff
+                output_map.insert("hotdog_name".to_string(), ValueEnum::StringValue("etherscan_overview".to_string()));
+                output_map.insert("from".to_string(), ValueEnum::StringValue(from));
+                output_map.insert("to".to_string(), ValueEnum::StringValue(to));
+                output_map.insert("method".to_string(), ValueEnum::StringValue(method_signature));
+                Some(Hotdog::from(output_map))
+            } else if let Some(abi) = contract_info.get(&to) {
+                let mut output_map: HashMap<String, ValueEnum> = HashMap::new();
+                // TODO add the tx meta stuff
+                output_map.insert("hotdog_name".to_string(), ValueEnum::StringValue("etherscan_overview".to_string()));
+                output_map.insert("from".to_string(), ValueEnum::StringValue(from));
+                output_map.insert("to".to_string(), ValueEnum::StringValue(to));
+                output_map.insert("method".to_string(), ValueEnum::StringValue(method_signature));
+                Some(Hotdog::from(output_map))
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    Ok(Hotdogs{ hotdogs })
+
+
+}
