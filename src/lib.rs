@@ -420,22 +420,43 @@ pub fn etherscan_overview(param: String, blk: eth::Block) -> Result<Hotdogs, Sub
             if transaction.input.len() < 4 {
                 return None;
             }
-            let method_signature = format_hex(&transaction.input[0..4]);
+            let method_signature = &transaction.input[0..4];
+
             if let Some(abi) = contract_info.get(&from) {
                 let mut output_map: HashMap<String, ValueEnum> = HashMap::new();
+                let functions = &abi.functions;
+                let function = functions.iter().find(|function| {
+                    let signature = function.method_id();
+                    signature == method_signature
+                });
+                let signature = match function {
+                    Some(function) => function.name.clone(),
+                    None => format_hex(&method_signature)
+                };
                 // TODO add the tx meta stuff
                 output_map.insert("hotdog_name".to_string(), ValueEnum::StringValue("etherscan_overview".to_string()));
                 output_map.insert("from".to_string(), ValueEnum::StringValue(from));
                 output_map.insert("to".to_string(), ValueEnum::StringValue(to));
-                output_map.insert("method".to_string(), ValueEnum::StringValue(method_signature));
+                output_map.insert("method".to_string(), ValueEnum::StringValue(signature));
                 Some(Hotdog::from(output_map))
             } else if let Some(abi) = contract_info.get(&to) {
                 let mut output_map: HashMap<String, ValueEnum> = HashMap::new();
+
+                let functions = &abi.functions;
+                let function = functions.iter().find(|function| {
+                    let signature = function.method_id();
+                    signature == method_signature
+                });
+                let signature = match function {
+                    Some(function) => function.name.clone(),
+                    None => format_hex(&method_signature)
+                };
+
                 // TODO add the tx meta stuff
                 output_map.insert("hotdog_name".to_string(), ValueEnum::StringValue("etherscan_overview".to_string()));
                 output_map.insert("from".to_string(), ValueEnum::StringValue(from));
                 output_map.insert("to".to_string(), ValueEnum::StringValue(to));
-                output_map.insert("method".to_string(), ValueEnum::StringValue(method_signature));
+                output_map.insert("method".to_string(), ValueEnum::StringValue(signature));
                 Some(Hotdog::from(output_map))
             } else {
                 None
