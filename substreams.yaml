@@ -1,32 +1,143 @@
+# [[file:Literate.org::Substreams Yaml/Spec version and name][Substreams Yaml/Spec version and name]]
 specVersion: v0.1.0
 package:
   name: "soulbound_modules"
   version: v0.1.0
+# Substreams Yaml/Spec version and name ends here
 
+# [[file:Literate.org::Substreams Yaml/Imports][Substreams Yaml/Imports]]
 imports:
   entities_change: https://github.com/streamingfast/substreams-entity-change/releases/download/v0.2.1/substreams-entity-change-v0.2.1.spkg
   database_change: https://github.com/streamingfast/substreams-database-change/releases/download/v1.0.0/substreams-database-change-v1.0.0.spkg
+# Substreams Yaml/Imports ends here
 
+# [[file:Literate.org::Substreams Yaml/Protobuf definitions][Substreams Yaml/Protobuf definitions]]
 protobuf:
   files:
     - soulbound.proto
   importPaths:
     - ./proto
+# Substreams Yaml/Protobuf definitions ends here
 
+# [[file:Literate.org::Substreams Yaml/Binary export][Substreams Yaml/Binary export]]
 binaries:
   default:
     type: wasm/rust-v1
     file: ./target/wasm32-unknown-unknown/release/soulbound_modules.wasm
+# Substreams Yaml/Binary export ends here
 
+# [[file:Literate.org::Substreams Yaml/Params][Substreams Yaml/Params]]
 params:
   map_events: MAP_EVENTS_PARAMS
   filter_events: FILTER_EVENTS_PARAMS
   filter_blur_trades: FILTER_BLUR_TRADES_PARAMS
   etherscan_overview: ETHERSCAN_OVERVIEW_PARAMS
   #filter_blur_trades: "0x5Af0D9827E0c53E4799BB226655A1de152A425a5&&0x5Af0D9827E0c53E4799BB226655A1de152A425a5"
+# Substreams Yaml/Params ends here
 
+# [[file:Literate.org::Substreams Yaml/Modules][Substreams Yaml/Modules]]
 modules:
+    - name: map_events
+      kind: map
+      inputs:
+        - params: string
+        - source: sf.ethereum.type.v2.Block
+      output:
+        type: proto:soulbound_modules.v1.Hotdogs
+    - name: filter_events
+      kind: map
+      inputs:
+        - params: string
+        - map: map_events
+      output:
+        type: proto:soulbound_modules.v1.Hotdogs
+    - name: all_blur_trades
+      kind: map
+      inputs:
+        - source: sf.ethereum.type.v2.Block
+      output:
+        type: proto:soulbound_modules.v1.Hotdogs
+    - name: filter_blur_trades
+      kind: map
+      inputs:
+        - params: string
+        - map: all_blur_trades
+        #- map: map_events
+      output:
+        type: proto:soulbound_modules.v1.Hotdogs
+    - name: blur_trades
+      kind: map
+      inputs:
+        - map: filter_blur_trades
+      output:
+        type: proto:soulbound_modules.v1.Hotdogs
+    - name: all_seaport_trades
+      kind: map
+      inputs:
+        - source: sf.ethereum.type.v2.Block
+      output:
+        type: proto:soulbound_modules.v1.Hotdogs
+    - name: filter_seaport_trades
+      kind: map
+      inputs:
+        - params: string
+        - map: all_seaport_trades
+      output:
+        type: proto:soulbound_modules.v1.Hotdogs
+    - name: seaport_trades
+      kind: map
+      inputs:
+        - map: filter_seaport_trades
+      output:
+        type: proto:soulbound_modules.v1.Hotdogs
+    - name: graph_out
+      kind: map
+      inputs:
+        - map: map_events
+      output:
+        type: proto:substreams.entity.v1.EntityChanges
+    - name: ownership_distribution
+      kind: store
+      updatePolicy: add
+      valueType: bigint
+      inputs:
+        - map: map_events
+    - name: store_unique_users
+      kind: store
+      updatePolicy: set_if_not_exists
+      valueType: bigint
+      inputs:
+        - map: map_events
+    - name: count_unique_users
+      kind: store
+      updatePolicy: add
+      valueType: bigint
+      inputs:
+        - store: store_unique_users
+          mode: deltas
+    - name: map_unique_users
+      kind: map
+      inputs:
+        - store: count_unique_users
+          mode: get
+      output:
+        type: proto:soulbound_modules.v1.Hotdog
+    - name: etherscan_overview
+      kind: map
+      inputs:
+        - params: string
+        - source: sf.ethereum.type.v2.Block
+      output:
+        type: proto:soulbound_modules.v1.Hotdogs
+    - name: gas_guzzlers
+      kind: map
+      inputs:
+        - source: sf.ethereum.type.v2.Block
+      output:
+        type: proto:soulbound_modules.v1.Hotdogs
+# Substreams Yaml/Modules ends here
 
+# [[file:Literate.org::lib.rs/Substreams Modules/map_events/Yaml Definition][lib.rs/Substreams Modules/map_events/Yaml Definition]]
   - name: map_events
     kind: map
     inputs:
@@ -34,7 +145,9 @@ modules:
       - source: sf.ethereum.type.v2.Block
     output:
       type: proto:soulbound_modules.v1.Hotdogs
+# lib.rs/Substreams Modules/map_events/Yaml Definition ends here
 
+# [[file:Literate.org::lib.rs/Substreams Modules/filter_events/Yaml Definition][lib.rs/Substreams Modules/filter_events/Yaml Definition]]
   - name: filter_events
     kind: map
     inputs:
@@ -42,14 +155,18 @@ modules:
       - map: map_events
     output:
       type: proto:soulbound_modules.v1.Hotdogs
+# lib.rs/Substreams Modules/filter_events/Yaml Definition ends here
 
+# [[file:Literate.org::lib.rs/Substreams Modules/all_blur_trades/Yaml Definition][lib.rs/Substreams Modules/all_blur_trades/Yaml Definition]]
   - name: all_blur_trades
     kind: map
     inputs:
       - source: sf.ethereum.type.v2.Block
     output:
       type: proto:soulbound_modules.v1.Hotdogs
+# lib.rs/Substreams Modules/all_blur_trades/Yaml Definition ends here
 
+# [[file:Literate.org::lib.rs/Substreams Modules/filter_blur_trades/Yaml Definition][lib.rs/Substreams Modules/filter_blur_trades/Yaml Definition]]
   - name: filter_blur_trades
     kind: map
     inputs:
@@ -58,21 +175,27 @@ modules:
       #- map: map_events
     output:
       type: proto:soulbound_modules.v1.Hotdogs
+# lib.rs/Substreams Modules/filter_blur_trades/Yaml Definition ends here
 
+# [[file:Literate.org::lib.rs/Substreams Modules/blur_trades/Yaml Definition][lib.rs/Substreams Modules/blur_trades/Yaml Definition]]
   - name: blur_trades
     kind: map
     inputs:
       - map: filter_blur_trades
     output:
       type: proto:soulbound_modules.v1.Hotdogs
+# lib.rs/Substreams Modules/blur_trades/Yaml Definition ends here
 
+# [[file:Literate.org::lib.rs/Substreams Modules/all_seaport_trades/Yaml Definition][lib.rs/Substreams Modules/all_seaport_trades/Yaml Definition]]
   - name: all_seaport_trades
     kind: map
     inputs:
       - source: sf.ethereum.type.v2.Block
     output:
       type: proto:soulbound_modules.v1.Hotdogs
+# lib.rs/Substreams Modules/all_seaport_trades/Yaml Definition ends here
 
+# [[file:Literate.org::lib.rs/Substreams Modules/filter_seaport_trades/Yaml Definition][lib.rs/Substreams Modules/filter_seaport_trades/Yaml Definition]]
   - name: filter_seaport_trades
     kind: map
     inputs:
@@ -80,35 +203,45 @@ modules:
       - map: all_seaport_trades
     output:
       type: proto:soulbound_modules.v1.Hotdogs
+# lib.rs/Substreams Modules/filter_seaport_trades/Yaml Definition ends here
 
+# [[file:Literate.org::lib.rs/Substreams Modules/seaport_trades/Yaml Definition][lib.rs/Substreams Modules/seaport_trades/Yaml Definition]]
   - name: seaport_trades
     kind: map
     inputs:
       - map: filter_seaport_trades
     output:
       type: proto:soulbound_modules.v1.Hotdogs
+# lib.rs/Substreams Modules/seaport_trades/Yaml Definition ends here
 
+# [[file:Literate.org::lib.rs/Substreams Modules/graph_out/Yaml Definition][lib.rs/Substreams Modules/graph_out/Yaml Definition]]
   - name: graph_out
     kind: map
     inputs:
       - map: map_events
     output:
       type: proto:substreams.entity.v1.EntityChanges
+# lib.rs/Substreams Modules/graph_out/Yaml Definition ends here
 
+# [[file:Literate.org::lib.rs/Substreams Modules/ownership_distribution/Yaml Definition][lib.rs/Substreams Modules/ownership_distribution/Yaml Definition]]
   - name: ownership_distribution
     kind: store
     updatePolicy: add
     valueType: bigint
     inputs:
       - map: map_events
+# lib.rs/Substreams Modules/ownership_distribution/Yaml Definition ends here
 
+# [[file:Literate.org::lib.rs/Substreams Modules/unique_users/store_unique_users/Yaml Definition][lib.rs/Substreams Modules/unique_users/store_unique_users/Yaml Definition]]
   - name: store_unique_users
     kind: store
     updatePolicy: set_if_not_exists
     valueType: bigint
     inputs:
       - map: map_events
+# lib.rs/Substreams Modules/unique_users/store_unique_users/Yaml Definition ends here
 
+# [[file:Literate.org::lib.rs/Substreams Modules/unique_users/count_unique_users/Yaml definition][lib.rs/Substreams Modules/unique_users/count_unique_users/Yaml definition]]
   - name: count_unique_users
     kind: store
     updatePolicy: add
@@ -116,7 +249,9 @@ modules:
     inputs:
       - store: store_unique_users
         mode: deltas
+# lib.rs/Substreams Modules/unique_users/count_unique_users/Yaml definition ends here
 
+# [[file:Literate.org::lib.rs/Substreams Modules/unique_users/map_unique_users/Yaml Definition][lib.rs/Substreams Modules/unique_users/map_unique_users/Yaml Definition]]
   - name: map_unique_users
     kind: map
     inputs:
@@ -124,7 +259,9 @@ modules:
         mode: get
     output:
       type: proto:soulbound_modules.v1.Hotdog
+# lib.rs/Substreams Modules/unique_users/map_unique_users/Yaml Definition ends here
 
+# [[file:Literate.org::lib.rs/Substreams Modules/etherscan_overview/Yaml Definition][lib.rs/Substreams Modules/etherscan_overview/Yaml Definition]]
   - name: etherscan_overview
     kind: map
     inputs:
@@ -132,10 +269,13 @@ modules:
       - source: sf.ethereum.type.v2.Block
     output:
       type: proto:soulbound_modules.v1.Hotdogs
+# lib.rs/Substreams Modules/etherscan_overview/Yaml Definition ends here
 
+# [[file:Literate.org::lib.rs/Substreams Modules/gas_guzzlers/Yaml Definition][lib.rs/Substreams Modules/gas_guzzlers/Yaml Definition]]
   - name: gas_guzzlers
     kind: map
     inputs:
       - source: sf.ethereum.type.v2.Block
     output:
       type: proto:soulbound_modules.v1.Hotdogs
+# lib.rs/Substreams Modules/gas_guzzlers/Yaml Definition ends here

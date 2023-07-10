@@ -1,8 +1,12 @@
+// [[file:Literate.org::*build.rs][build.rs:1]]
+// [[file:Literate.org::*build.rs][build.rs/Imports]]
 use std::fs;
 use std::io::Write;
 use std::path::Path;
+// build.rs/Imports ends here
 
 fn main() {
+// [[file:Literate.org::*build.rs][build.rs/Abi Strings]]
     // for each file within the abis/ dir, we need to write it as a constant string within src/abi_constants.rs file
     let path = Path::new("./abis");
     let files = fs::read_dir(path).unwrap();
@@ -15,4 +19,6 @@ fn main() {
     }
 
     fs::write("./src/abi_constants.rs", abi_constants).unwrap();
+// build.rs/Abi Strings ends here
 }
+// build.rs:1 ends here

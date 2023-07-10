@@ -1,5 +1,5 @@
+// [[file:../Literate.org::Protobufs/Hotdogs/Hotdog Code][Protobufs/Hotdogs/Hotdog Code]]
 syntax = "proto3";
-
 package soulbound_modules.v1;
 
 message Value {
@@ -23,3 +23,4 @@ message Hotdog {
 message Hotdogs {
   repeated Hotdog hotdogs = 1;
 }
+// Protobufs/Hotdogs/Hotdog Code ends here

@@ -9,7 +9,7 @@
 - [ ] Make a plan on how to handle multi for multi trades with the seaport contracts
       Right now we are only handling trades from seaport if there is a single collection someone is trading for.
       We should probably also add support for many to many swaps
-- [ ] Add EOA support to the [[*etherscan_overview]] module
+- [ ] Add EOA support to the [[*etherscan_overview][etherscan_overview]] module
 * Notes
 This is a test of literate programming with lsp-mode in emacs
 
@@ -36,7 +36,7 @@ Certain modules I think would benefit from hardcoding the ABI and maybe address 
 
 Things like the blur and seaport modules.
 
-To do this, within a [[*build_script]], I will need to run some kind of ABI decoder. Or I could just write the ABI to an exported static constant variable.
+To do this, within the [[*build.rs][build script]], I will need to run some kind of ABI decoder. Or I could just write the ABI to an exported static constant variable.
 
 I kind of like the exported static constant approach the most. Then decode them at runtime.
 
@@ -49,6 +49,7 @@ So it wont' work for now, but maybe soon!
 ** Hotdogs
 :PROPERTIES:
 :CUSTOM_ID: Hotdog
+:header-args: :comments link
 :END:
 Hotdogs are a core part of how this whole module system works.
 
@@ -65,9 +66,9 @@ The name comes from the fact, you don't really know what is inside of a hotdog. 
 
 *** Hotdog Code
 
+#+NAME: Protobufs/Hotdogs/Hotdog Code
 #+begin_src protobuf :tangle "proto/soulbound.proto"
 syntax = "proto3";
-
 package soulbound_modules.v1;
 
 message Value {
@@ -100,11 +101,11 @@ But I have this idea of "hotdog types", where we have some unit structs, which h
 The first example of this is the [[#nft_price][Nft Price]] type
 * Substreams Yaml
 :PROPERTIES:
-:header-args: :tangle substreams.yaml
+:header-args: :tangle substreams.yaml :comments link
 :END:
-The main config for our substream
 
 ** Spec version and name
+#+NAME: Substreams Yaml/Spec version and name
 #+begin_src yaml
 specVersion: v0.1.0
 package:
@@ -113,12 +114,14 @@ package:
 #+end_src
 
 ** Imports
+#+NAME: Substreams Yaml/Imports
 #+begin_src yaml
 imports:
   entities_change: https://github.com/streamingfast/substreams-entity-change/releases/download/v0.2.1/substreams-entity-change-v0.2.1.spkg
   database_change: https://github.com/streamingfast/substreams-database-change/releases/download/v1.0.0/substreams-database-change-v1.0.0.spkg
 #+end_src
 ** Protobuf definitions
+#+NAME: Substreams Yaml/Protobuf definitions
 #+begin_src yaml
 protobuf:
   files:
@@ -128,6 +131,7 @@ protobuf:
 #+end_src
 ** Binary export
 
+#+NAME: Substreams Yaml/Binary export
 #+begin_src yaml
 binaries:
   default:
@@ -136,6 +140,7 @@ binaries:
 #+end_src
 
 ** Params
+#+NAME: Substreams Yaml/Params
 #+begin_src yaml
 params:
   map_events: MAP_EVENTS_PARAMS
@@ -147,29 +152,38 @@ params:
 ** Modules
 The module yaml config are exported within the module definition located at [[#substream_modules]]
 
-#+begin_src yaml
+#+NAME: Substreams Yaml/Modules
+#+begin_src yaml :noweb yes
 modules:
+  <<substream-module-yaml-defs>>
 #+end_src
 
 * build.rs
 :PROPERTIES:
 :CUSTOM_ID: build_script
-:header-args: :tangle "build.rs"
+:header-args: :comments noweb :noweb no-export
 :END:
-** Imports
 
-#+begin_src rust
+#+begin_src rust :tangle build.rs
+<<build-script-imports>>
+
+fn main() {
+<<write-all-abi-strings>>
+}
+#+end_src
+** Imports
+#+NAME: build.rs/Imports
+#+begin_src rust :noweb-ref build-script-imports
 use std::fs;
 use std::io::Write;
 use std::path::Path;
 #+end_src
-** Abi Strings
+** Writing the abi Strings
 
-So we need to read each ABI, and write it to some constant file, and import it within the [[*lib.rs]] file.
+So we need to read each ABI, and write it to some constant file, and import it within the [[*lib.rs][lib.rs]] file.
 
-#+begin_src rust
-
-fn main() {
+#+NAME: build.rs/Abi Strings
+#+begin_src rust :noweb-ref write-all-abi-strings
     // for each file within the abis/ dir, we need to write it as a constant string within src/abi_constants.rs file
     let path = Path::new("./abis");
     let files = fs::read_dir(path).unwrap();
@@ -182,7 +196,6 @@ fn main() {
     }
 
     fs::write("./src/abi_constants.rs", abi_constants).unwrap();
-}
 #+end_src
 
 * helpers.rs
@@ -193,6 +206,7 @@ A collection of helper functions to make life easier
 
 ** Imports
 
+#+NAME: helpers.rs/Imports
 #+begin_src rust
 use std::str::FromStr;
 use std::{collections::HashMap, ops::Mul, str::from_utf8};
@@ -208,6 +222,7 @@ use substreams::{scalar::BigInt, Hex};
 use substreams_ethereum::{block_view::LogView, pb::eth::v2::Log};
 #+end_src
 
+
 ** Hotdog Helpers
 :PROPERTIES:
 :CUSTOM_ID: hotdog_helpers
@@ -221,6 +236,7 @@ Also with values, the syntax can be gnarly, but most values impliment a .into() 
 
 *** Type Conversions
 **** From Hotdog -> HashMap
+#+NAME: helpers.rs/Hotdog Helpers/Type Conversions/From Hotdog -> HashMap
 #+begin_src rust
 impl From<Hotdog> for HashMap<String, ValueEnum> {
     fn from(hotdog: Hotdog) -> Self {
@@ -239,6 +255,7 @@ impl From<Hotdog> for HashMap<String, ValueEnum> {
 #+end_src
 
 **** From Hashmap -> Hotdog
+#+NAME: helpers.rs/Hotdog Helpers/Type Conversions/From Hashmap -> Hotdog
 #+begin_src rust
 impl From<HashMap<String, ValueEnum>> for Hotdog {
     fn from(map: HashMap<String, ValueEnum>) -> Self {
@@ -263,6 +280,7 @@ impl From<HashMap<String, ValueEnum>> for Hotdog {
 #+end_src
 **** Log -> hotdog
 Takes in a log and some other data and creates a hotdog from it
+#+NAME: helpers.rs/Hotdog Helpers/Type Conversions/Log -> hotdog
 #+begin_src rust
 pub fn log_to_hotdog(
     log: &LogView,
@@ -300,6 +318,7 @@ pub fn log_to_hotdog(
 **** ValueStruct into -> ValueEnum
 Conversion from a ValueStruct into a ValueEnum. Again naming doesn't feel great here but not sure how to make this better.
 
+#+NAME: helpers.rs/Hotdog Helpers/Type Conversions/ValueStruct into -> ValueEnum
 #+begin_src rust
 impl Into<ValueEnum> for ValueStruct {
     fn into(self) -> ValueEnum {
@@ -314,6 +333,7 @@ impl Into<ValueEnum> for ValueStruct {
 
 Another type conversion that helps with the syntax soup.
 
+#+NAME: helpers.rs/Hotdog Helpers/Type Conversions/Map into -> HashMap<String, ValueEnum>
 #+begin_src rust
 impl Into<HashMap<String, ValueEnum>> for Map {
     fn into(self) -> HashMap<String, ValueEnum> {
@@ -326,6 +346,7 @@ impl Into<HashMap<String, ValueEnum>> for Map {
 *** Hotdog helpers trait
 Some similar type conversion helpers are present in this trait
 
+#+NAME: helpers.rs/Hotdog Helpers/Hotdog helpers trait
 #+begin_src rust
 pub trait HotdogHelpers {
     fn to_hashmap(&self) -> HashMap<String, ValueEnum>;
@@ -352,6 +373,7 @@ Just some more miscellaneous functions
 Adds the event log transaction metadata to a hotdog.
 
 This data is generally good to have
+#+NAME: helpers.rs/Hotdog Helpers/Misc Functions/Add tx meta
 #+begin_src rust
 pub fn add_tx_meta(
     map: &mut HashMap<String, ValueEnum>,
@@ -413,6 +435,7 @@ The update tables trait is used to give the hotdog the ability to update postgre
 
 This is used within the [[#graph_out]] module
 
+#+NAME: helpers.rs/Hotdog Helpers/Misc Functions/Update Tables Trait and Impl
 #+begin_src rust
 pub trait UpdateTables {
     fn create_id(&self) -> String;
@@ -464,6 +487,7 @@ This function converts a ethereum_abi::Value into a value enum for use in a hotd
 
 I am not sure what better to name this, though the name doesn't feel great.
 
+#+NAME: helpers.rs/Hotdog Helpers/Misc Functions/param_value_to_value_enum
 #+begin_src rust
 pub fn param_value_to_value_enum(value: &Value) -> ValueEnum {
     match value {
@@ -508,6 +532,7 @@ pub fn param_value_to_value_enum(value: &Value) -> ValueEnum {
 #+end_src
 ** General Helpers
 *** Format Hex
+#+NAME: helpers.rs/General Helpers/Format Hex
 #+begin_src rust
 pub fn format_hex(hex: &[u8]) -> String {
   format!("0x{}", Hex(hex).to_string())
@@ -518,6 +543,7 @@ pub fn format_hex(hex: &[u8]) -> String {
 :header-args: :tangle "src/nft_helpers.rs"
 :END:
 ** Imports
+#+NAME: nft_helpers.rs/Imports
 #+begin_src rust
 use crate::ValueEnum;
 use std::collections::HashMap;
@@ -531,12 +557,13 @@ use crate::{pb::soulbound_modules::v1::Hotdog, helpers::HotdogHelpers};
 :CUSTOM_ID: nft_price
 :END:
 
-Explanation of [[#hotdog_types]]
+Explanation of [[#hotdog_types][hotdog types]]
 
 The purpose of this type is to have a common way to display an NFT trade in a dashboard, rather than handling events for each different nft marketplace event.
 
 The way we are going to impliment any sort of "types" for hotdogs are as unit structs, with helper functions for converting specific other types or events into this "type".
 
+#+NAME: nft_helpers.rs/NFT Price "type"
 #+begin_src rust
 /// A struct that allows conversions between a hotdog and a hotdog of type NftPrice
 /// NFTPrice contains:
@@ -558,6 +585,7 @@ impl NftPrice {
 #+end_src
 ** Type Conversions
 *** wei_to_eth
+#+NAME: nft_helpers.rs/Type Conversions/wei_to_eth
 #+begin_src rust
 fn wei_to_eth(wei: &str) -> String {
     BigInt::from_str(wei).unwrap().to_decimal(18).to_string()
@@ -568,6 +596,7 @@ fn wei_to_eth(wei: &str) -> String {
 
 Converts a blur "OrdersMatched" event into an [[#nft_price]] hotdog.
 
+#+NAME: nft_helpers.rs/Type Conversions/blur_trade_to_nft_price
 #+begin_src rust
 
 fn blur_trade_to_nft_price(hotdog: &Hotdog) -> Result<Hotdog, &str> {
@@ -626,6 +655,7 @@ fn blur_trade_to_nft_price(hotdog: &Hotdog) -> Result<Hotdog, &str> {
 *** seaport_trade_to_nft_price
 Converts a seaport trade into an [[#nft_price]] hotdog
 
+#+NAME: nft_helpers.rs/Type Conversions/seaport_trade_to_nft_price
 #+begin_src rust
 fn seaport_trade_to_nft_price(hotdog: &Hotdog) -> Result<Hotdog, &str> {
     let name = &hotdog.hotdog_name;
@@ -791,32 +821,55 @@ fn seaport_trade_to_nft_price(hotdog: &Hotdog) -> Result<Hotdog, &str> {
 
 * lib.rs
 :PROPERTIES:
-:header-args: :tangle "src/lib.rs"
+:header-args: :comments noweb
 :END:
-** Rust Modules
-Literal rust modules we are using
-#+begin_src rust :tangle src/lib.rs
-pub mod helpers;
-mod pb;
-pub mod nft_helpers;
-mod abi_constants;
+
+The general file structure is as such:
+
+#+begin_src rust :noweb no-export :tangle src/lib.rs
+<<lib.rs-imports-and-modules>>
+
+<<substream-modules>>
 #+end_src
-** Imports
-#+begin_src rust
-use std::collections::HashMap;
-use nft_helpers::NftPrice;
-use substreams::{pb::substreams::store_delta::Operation, store::{StoreAddBigInt, StoreAdd, StoreGetBigInt, StoreGet}, log::println};
+
+
+** Imports and module declarations
+#+NAME: lib.rs/Rust Modules
+#+begin_src rust :tangle no
+mod abi_constants;
+pub mod helpers;
+pub mod nft_helpers;
+mod pb;
+#+end_src
+
+#+NAME: lib.rs/Imports
+
+#+begin_src rust :noweb yes :tangle no :noweb-ref lib.rs-imports-and-modules
+<<lib.rs/Rust Modules>>
+use ethereum_abi::Abi;
 use helpers::{format_hex, log_to_hotdog, HotdogHelpers, UpdateTables};
-use pb::soulbound_modules::v1::{Hotdog, Hotdogs, value::Value as ValueEnum, Value as ValueStruct};
-use substreams::{self, errors::Error as SubstreamError, store::{StoreSetIfNotExists, StoreSetIfNotExistsBigInt, StoreNew, DeltaBigInt, Deltas}, scalar::BigInt};
+use nft_helpers::NftPrice;
+use pb::soulbound_modules::v1::{value::Value as ValueEnum, Hotdog, Hotdogs, Value as ValueStruct};
+use std::collections::HashMap;
+use substreams::{
+    self,
+    errors::Error as SubstreamError,
+    scalar::BigInt,
+    store::{DeltaBigInt, Deltas, StoreNew, StoreSetIfNotExists, StoreSetIfNotExistsBigInt},
+};
+use substreams::{
+    log::println,
+    pb::substreams::store_delta::Operation,
+    store::{StoreAdd, StoreAddBigInt, StoreGet, StoreGetBigInt},
+};
 use substreams_entity_change::{pb::entity::EntityChanges, tables::Tables};
 use substreams_ethereum::pb::eth::v2 as eth;
-use ethereum_abi::Abi;
 #+end_src
 
 ** Substreams Modules
 :PROPERTIES:
 :CUSTOM_ID: substream_modules
+:HEADER-ARGS: :noweb-ref substream-modules :comments noweb
 :END:
 Functions which represent the modules within the substream
 *** map_events
@@ -826,9 +879,11 @@ This module takes in a param string of the form
 
 You can repeat this pattern, so long as every contract address has a abi that follows it.
 
-The output of this module will be a [[#Hotdog]]
+The output of this module will be a [[#Hotdog][Hotdog]]
+
 
 **** Rust Code
+#+NAME: lib.rs/Substreams Modules/map_events/Rust Code
 #+begin_src rust
 // takes an input string of address&&abi*
 #[substreams::handlers::map]
@@ -837,7 +892,7 @@ pub fn map_events(param: String, blk: eth::Block) -> Result<Hotdogs, SubstreamEr
 
     if split.len() % 2 != 0 {
         for item in split {
-            println(format!("item {:?}\n\n\n",item));
+            println(format!("item {:?}\n\n\n", item));
         }
 
         panic!("Every address needs an ABI");
@@ -879,14 +934,12 @@ pub fn map_events(param: String, blk: eth::Block) -> Result<Hotdogs, SubstreamEr
         })
         .collect();
 
-    Ok(Hotdogs{ hotdogs })
-
-
+    Ok(Hotdogs { hotdogs })
 }
-
 #+end_src
 **** Yaml Definition
-#+begin_src yaml :tangle "substreams.yaml"
+#+NAME: lib.rs/Substreams Modules/map_events/Yaml Definition
+#+begin_src yaml :tangle "substreams.yaml" :noweb-ref substream-module-yaml-defs
   - name: map_events
     kind: map
     inputs:
@@ -907,6 +960,7 @@ This can be repeated where each event to track is split with &&
 IE: "Transfer&&Approval"
 
 **** Rust Code
+#+NAME: lib.rs/Substreams Modules/filter_events/Rust Code
 #+begin_src rust
 // Takes in a param string of the form
 // Transfer&&Approval
@@ -921,12 +975,13 @@ fn filter_events(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamEr
         }
     }
     Ok(Hotdogs {
-        hotdogs: filtered_hotdogs
+        hotdogs: filtered_hotdogs,
     })
 }
 #+end_src
 **** Yaml Definition
-#+begin_src yaml :tangle "substreams.yaml"
+#+NAME: lib.rs/Substreams Modules/filter_events/Yaml Definition
+#+begin_src yaml :tangle "substreams.yaml" :noweb-ref substream-module-yaml-defs
   - name: filter_events
     kind: map
     inputs:
@@ -936,18 +991,21 @@ fn filter_events(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamEr
       type: proto:soulbound_modules.v1.Hotdogs
 #+end_src
 *** all_blur_trades
-This module is the hardcoded source of all blur trades. It will replace the map_events input for [[*filter_blur_trades]]
+This module is the hardcoded source of all blur trades. It will replace the map_events input for [[*filter_blur_trades][filter_blur_trades]]
 
-It is super similar to [[*map_events]] in how it operates, just hardcoded is all :)
+It is super similar to [[*map_events][map_events]] in how it operates, just hardcoded is all :)
 
 **** Rust Code
+#+NAME: lib.rs/Substreams Modules/all_blur_trades/Rust Code
 #+begin_src rust
 #[substreams::handlers::map]
 pub fn all_blur_trades(blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
     let mut contract_info: HashMap<String, Abi> = HashMap::new();
 
     // Blur address
-    let blur_address = "0x000000000000Ad05Ccc4F10045630fb830B95127".to_lowercase().to_string();
+    let blur_address = "0x000000000000Ad05Ccc4F10045630fb830B95127"
+        .to_lowercase()
+        .to_string();
     let blur_abi = serde_json::from_str(abi_constants::BLUR).unwrap();
 
     contract_info.insert(blur_address, blur_abi);
@@ -975,11 +1033,12 @@ pub fn all_blur_trades(blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
         })
         .collect();
 
-    Ok(Hotdogs{ hotdogs })
+    Ok(Hotdogs { hotdogs })
 }
 #+end_src
 **** Yaml Definition
-#+begin_src yaml :tangle substreams.yaml
+#+NAME: lib.rs/Substreams Modules/all_blur_trades/Yaml Definition
+#+begin_src yaml :tangle "substreams.yaml" :noweb-ref substream-module-yaml-defs
   - name: all_blur_trades
     kind: map
     inputs:
@@ -1001,14 +1060,20 @@ IE: "MILADY_ADDRESS&&SOMETHING_ELSE" or "MILADY_ADDRESS"
 If you just want all trades from blur, just pass in an empty string.
 
 **** Rust Code
+#+NAME: lib.rs/Substreams Modules/filter_blur_trades/Rust Code
 #+begin_src rust
 // filter all orders by a specific address
 #[substreams::handlers::map]
 fn filter_blur_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
-    let filtered_addresses: Vec<String> = param.split("&&").map(|address| address.to_lowercase()).collect::<Vec<_>>();
+    let filtered_addresses: Vec<String> = param
+        .split("&&")
+        .map(|address| address.to_lowercase())
+        .collect::<Vec<_>>();
 
     if filtered_addresses.len() == 1 {
-        return Ok(Hotdogs{ hotdogs: hotdogs.hotdogs })
+        return Ok(Hotdogs {
+            hotdogs: hotdogs.hotdogs,
+        });
     }
 
     let mut filtered_hotdogs: Vec<Hotdog> = vec![];
@@ -1022,12 +1087,12 @@ fn filter_blur_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, Substr
 
         let buy = match map.get("buy") {
             Some(buy) => buy.clone(),
-            None => panic!("map does not contain a buy field {:?}", hotdog)
+            None => panic!("map does not contain a buy field {:?}", hotdog),
         };
 
         let sell = match map.get("sell") {
             Some(sell) => sell.clone(),
-            None => panic!("map does not contain a sell field {:?}", map)
+            None => panic!("map does not contain a sell field {:?}", map),
         };
 
         match (buy, sell) {
@@ -1035,8 +1100,13 @@ fn filter_blur_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, Substr
                 let buy_collection = buy_map.keys.get("collection").unwrap().clone();
                 let sell_collection = sell_map.keys.get("collection").unwrap().clone();
                 match (buy_collection.into(), sell_collection.into()) {
-                    (ValueEnum::StringValue(buy_collection), ValueEnum::StringValue(sell_collection)) => {
-                        if filtered_addresses.contains(&buy_collection) || filtered_addresses.contains(&sell_collection) {
+                    (
+                        ValueEnum::StringValue(buy_collection),
+                        ValueEnum::StringValue(sell_collection),
+                    ) => {
+                        if filtered_addresses.contains(&buy_collection)
+                            || filtered_addresses.contains(&sell_collection)
+                        {
                             filtered_hotdogs.push(hotdog.clone());
                         }
                     }
@@ -1048,13 +1118,13 @@ fn filter_blur_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, Substr
     }
 
     Ok(Hotdogs {
-        hotdogs: filtered_hotdogs
+        hotdogs: filtered_hotdogs,
     })
 }
-
 #+end_src
 **** Yaml Definition
-#+begin_src yaml :tangle substreams.yaml
+#+NAME: lib.rs/Substreams Modules/filter_blur_trades/Yaml Definition
+#+begin_src yaml :tangle "substreams.yaml" :noweb-ref substream-module-yaml-defs
   - name: filter_blur_trades
     kind: map
     inputs:
@@ -1065,26 +1135,28 @@ fn filter_blur_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, Substr
       type: proto:soulbound_modules.v1.Hotdogs
 #+end_src
 *** blur_trades
-This module takes in filter_blur_trades as an input, and converts it to the "type" [[#nft_price]]
+This module takes in filter_blur_trades as an input, and converts it to the "type" [[#nft_price][nft price]]
 
 **** Rust Code
+#+NAME: lib.rs/Substreams Modules/blur_trades/Rust Code
 #+begin_src rust
 #[substreams::handlers::map]
 pub fn blur_trades(hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
-    let hotdogs = hotdogs.hotdogs.iter().filter_map(|hotdog| {
-       match NftPrice::from_blur(hotdog) {
-              Ok(hotdog) => Some(hotdog),
-              _=> None
-       }
-    }).collect::<Vec<Hotdog>>();
+    let hotdogs = hotdogs
+        .hotdogs
+        .iter()
+        .filter_map(|hotdog| match NftPrice::from_blur(hotdog) {
+            Ok(hotdog) => Some(hotdog),
+            _ => None,
+        })
+        .collect::<Vec<Hotdog>>();
 
-    Ok(Hotdogs {
-        hotdogs
-    })
+    Ok(Hotdogs { hotdogs })
 }
 #+end_src
 **** Yaml Definition
-#+begin_src yaml :tangle substreams.yaml
+#+NAME: lib.rs/Substreams Modules/blur_trades/Yaml Definition
+#+begin_src yaml :tangle "substreams.yaml" :noweb-ref substream-module-yaml-defs
   - name: blur_trades
     kind: map
     inputs:
@@ -1093,22 +1165,25 @@ pub fn blur_trades(hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
       type: proto:soulbound_modules.v1.Hotdogs
 #+end_src
 *** all_seaport_trades
-This module is the hardcoded source of all blur trades. It will replace the map_events input for [[*filter_blur_trades]]
+This module is the hardcoded source of all blur trades. It will replace the map_events input for [[*filter_blur_trades][filter_blur_trades]]
 
-It is super similar to [[*map_events]] in how it operates, just hardcoded is all :)
+It is super similar to [[*map_events][map_events]] in how it operates, just hardcoded is all :)
     
 **** Rust Code
+#+NAME: lib.rs/Substreams Modules/all_seaport_trades/Rust Code
 #+begin_src rust :tangle src/lib.rs
 #[substreams::handlers::map]
 pub fn all_seaport_trades(blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
     let mut contract_info: HashMap<String, Abi> = HashMap::new();
 
     // seaport address
-    let seaport_address = "0x00000000000000ADc04C56Bf30aC9d3c0aAF14dC".to_lowercase().to_string();
+    let seaport_address = "0x00000000000000ADc04C56Bf30aC9d3c0aAF14dC"
+        .to_lowercase()
+        .to_string();
     let seaport_abi = serde_json::from_str(abi_constants::SEAPORT).unwrap();
 
     contract_info.insert(seaport_address, seaport_abi);
-    
+
     let block_hash = format_hex(&blk.hash);
     let block_number = blk.number;
     let block_timestamp = blk
@@ -1132,11 +1207,12 @@ pub fn all_seaport_trades(blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
         })
         .collect();
 
-    Ok(Hotdogs{ hotdogs })
+    Ok(Hotdogs { hotdogs })
 }
 #+end_src
 **** Yaml Definition
-#+begin_src yaml :tangle substreams.yaml
+#+NAME: lib.rs/Substreams Modules/all_seaport_trades/Yaml Definition
+#+begin_src yaml :tangle "substreams.yaml" :noweb-ref substream-module-yaml-defs
   - name: all_seaport_trades
     kind: map
     inputs:
@@ -1149,17 +1225,23 @@ pub fn all_seaport_trades(blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
 :PROPERTIES:
 :CUSTOM_ID: filter_blur_trades
 :END:
-The same as the [[*filter_blur_trades]], however for seaport
+The same as the [[*filter_blur_trades][filter_blur_trades]], however for seaport
 
 **** Rust Code
+#+NAME: lib.rs/Substreams Modules/filter_seaport_trades/Rust Code
 #+begin_src rust :tangle src/lib.rs
 // filter all orders by a specific address
 #[substreams::handlers::map]
 fn filter_seaport_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
-    let filtered_addresses: Vec<String> = param.split("&&").map(|address| address.to_lowercase()).collect::<Vec<_>>();
+    let filtered_addresses: Vec<String> = param
+        .split("&&")
+        .map(|address| address.to_lowercase())
+        .collect::<Vec<_>>();
 
     if filtered_addresses.len() == 1 {
-        return Ok(Hotdogs{ hotdogs: hotdogs.hotdogs })
+        return Ok(Hotdogs {
+            hotdogs: hotdogs.hotdogs,
+        });
     }
 
     let mut filtered_hotdogs: Vec<Hotdog> = vec![];
@@ -1173,21 +1255,21 @@ fn filter_seaport_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, Sub
 
         let consideration = match map.get("consideration") {
             Some(consideration) => consideration.clone(),
-            None => panic!("map does not contain a consideration field {:?}", hotdog)
+            None => panic!("map does not contain a consideration field {:?}", hotdog),
         };
 
         let offer = match map.get("offer") {
             Some(offer) => offer.clone(),
-            None => panic!("map does not contain a offer field {:?}", map)
+            None => panic!("map does not contain a offer field {:?}", map),
         };
 
         match (consideration, offer) {
             (ValueEnum::MapValue(consideration), ValueEnum::MapValue(offer)) => {
                 // the event field "offer" is an array of offers, this is what is being purchased
                 for (index, value) in offer.keys.iter() {
-                    let value:HashMap<String,ValueEnum> = match value.clone().into() {
+                    let value: HashMap<String, ValueEnum> = match value.clone().into() {
                         ValueEnum::MapValue(value) => value.into(),
-                        _ => continue
+                        _ => continue,
                     };
                     let collection = value.get("token").unwrap().clone();
                     match collection {
@@ -1201,9 +1283,9 @@ fn filter_seaport_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, Sub
                 }
                 // the event field "consideration" is an array of considerations, this is what is being sold to purchase the offer
                 for (index, value) in consideration.keys.iter() {
-                    let value:HashMap<String,ValueEnum> = match value.clone().into() {
+                    let value: HashMap<String, ValueEnum> = match value.clone().into() {
                         ValueEnum::MapValue(value) => value.into(),
-                        _ => continue
+                        _ => continue,
                     };
                     let collection = value.get("token").unwrap().clone();
                     match collection {
@@ -1221,13 +1303,13 @@ fn filter_seaport_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, Sub
     }
 
     Ok(Hotdogs {
-        hotdogs: filtered_hotdogs
+        hotdogs: filtered_hotdogs,
     })
 }
-
 #+end_src
 **** Yaml Definition
-#+begin_src yaml :tangle substreams.yaml
+#+NAME: lib.rs/Substreams Modules/filter_seaport_trades/Yaml Definition
+#+begin_src yaml :tangle "substreams.yaml" :noweb-ref substream-module-yaml-defs
   - name: filter_seaport_trades
     kind: map
     inputs:
@@ -1241,27 +1323,30 @@ fn filter_seaport_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, Sub
 :CUSTOM_ID: seaport_trades
 :END:
 
-Not done yet! But when it is, it will convert a seaport trade into a [[#nft_price]]
+Not done yet! But when it is, it will convert a seaport trade into a [[#nft_price][nft price]]
+
 
 **** Rust Code
+#+NAME: lib.rs/Substreams Modules/seaport_trades/Rust Code
 #+begin_src rust
 #[substreams::handlers::map]
 pub fn seaport_trades(hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
-    let hotdogs = hotdogs.hotdogs.iter().filter_map(|hotdog| {
-       match NftPrice::from_seaport(hotdog) {
-              Ok(hotdog) => Some(hotdog),
-              _=> None
-       }
-    }).collect::<Vec<Hotdog>>();
+    let hotdogs = hotdogs
+        .hotdogs
+        .iter()
+        .filter_map(|hotdog| match NftPrice::from_seaport(hotdog) {
+            Ok(hotdog) => Some(hotdog),
+            _ => None,
+        })
+        .collect::<Vec<Hotdog>>();
 
-    Ok(Hotdogs {
-        hotdogs
-    })
+    Ok(Hotdogs { hotdogs })
 }
 #+end_src
 
 **** Yaml Definition
-#+begin_src yaml :tangle substreams.yaml
+#+NAME: lib.rs/Substreams Modules/seaport_trades/Yaml Definition
+#+begin_src yaml :tangle "substreams.yaml" :noweb-ref substream-module-yaml-defs
   - name: seaport_trades
     kind: map
     inputs:
@@ -1282,10 +1367,10 @@ The entity name according to the graphql schema should be the same as the hotdog
 The module takes in input of map_events by default, but works with any hotdog.
 
 **** Rust Code
+#+NAME: lib.rs/Substreams Modules/graph_out/Rust Code
 #+begin_src rust
 #[substreams::handlers::map]
 pub fn graph_out(hotdogs: Hotdogs) -> Result<EntityChanges, SubstreamError> {
-
     let mut tables = Tables::new();
 
     for hotdog in hotdogs.hotdogs {
@@ -1298,7 +1383,8 @@ pub fn graph_out(hotdogs: Hotdogs) -> Result<EntityChanges, SubstreamError> {
 }
 #+end_src
 **** Yaml Definition
-#+begin_src yaml :tangle substreams.yaml
+#+NAME: lib.rs/Substreams Modules/graph_out/Yaml Definition
+#+begin_src yaml :tangle "substreams.yaml" :noweb-ref substream-module-yaml-defs
   - name: graph_out
     kind: map
     inputs:
@@ -1313,6 +1399,7 @@ Basically it's just a store that either adds or removes 1 from the from and to a
 
 It's input should be a map_events
 **** Rust Code
+#+NAME: lib.rs/Substreams Modules/ownership_distribution/Rust Code
 #+begin_src rust
 #[substreams::handlers::store]
 fn store_ownership_distribution(hotdogs: Hotdogs, s: StoreAddBigInt) {
@@ -1326,7 +1413,11 @@ fn store_ownership_distribution(hotdogs: Hotdogs, s: StoreAddBigInt) {
         let to = map.get("to").unwrap().clone();
         let log_index = map.get("log_index").unwrap().clone();
         match (from, to, log_index) {
-            (ValueEnum::StringValue(from), ValueEnum::StringValue(to), ValueEnum::StringValue(log_index)) => {
+            (
+                ValueEnum::StringValue(from),
+                ValueEnum::StringValue(to),
+                ValueEnum::StringValue(log_index),
+            ) => {
                 let log_index = log_index.parse::<u64>().unwrap();
                 s.add(log_index, from, BigInt::from(-1));
                 s.add(log_index, to, BigInt::from(1));
@@ -1337,7 +1428,8 @@ fn store_ownership_distribution(hotdogs: Hotdogs, s: StoreAddBigInt) {
 }
 #+end_src
 **** Yaml Definition
-#+begin_src yaml :tangle substreams.yaml
+#+NAME: lib.rs/Substreams Modules/ownership_distribution/Yaml Definition
+#+begin_src yaml :tangle "substreams.yaml" :noweb-ref substream-module-yaml-defs
   - name: ownership_distribution
     kind: store
     updatePolicy: add
@@ -1355,6 +1447,7 @@ This needs a few modules in order to display nicely however.
 
 stores the unique users in a store by address
 ***** Rust Code
+#+NAME: lib.rs/Substreams Modules/unique_users/store_unique_users/Rust Code
 #+begin_src rust
 #[substreams::handlers::store]
 pub fn store_unique_users(hotdogs: Hotdogs, s: StoreSetIfNotExistsBigInt) {
@@ -1375,7 +1468,8 @@ pub fn store_unique_users(hotdogs: Hotdogs, s: StoreSetIfNotExistsBigInt) {
 }
 #+end_src
 ***** Yaml Definition
-#+begin_src yaml :tangle substreams.yaml
+#+NAME: lib.rs/Substreams Modules/unique_users/store_unique_users/Yaml Definition
+#+begin_src yaml :tangle "substreams.yaml" :noweb-ref substream-module-yaml-defs
   - name: store_unique_users
     kind: store
     updatePolicy: set_if_not_exists
@@ -1390,6 +1484,7 @@ counts how many unique users have interacted with the store.
 The way this works is we just add 1 to the store value whenever the delta of the store_unique_users module was a create operation, and do nothing otherwise.
 
 ***** Rust Code
+#+NAME: lib.rs/Substreams Modules/unique_users/count_unique_users/Rust Code
 #+begin_src rust
 #[substreams::handlers::store]
 pub fn count_unique_users(unique_users: Deltas<DeltaBigInt>, s: StoreAddBigInt) {
@@ -1402,7 +1497,8 @@ pub fn count_unique_users(unique_users: Deltas<DeltaBigInt>, s: StoreAddBigInt) 
 }
 #+end_src
 ***** Yaml definition
-#+begin_src yaml :tangle substreams.yaml
+#+NAME: lib.rs/Substreams Modules/unique_users/count_unique_users/Yaml definition
+#+begin_src yaml :tangle "substreams.yaml" :noweb-ref substream-module-yaml-defs
   - name: count_unique_users
     kind: store
     updatePolicy: add
@@ -1415,13 +1511,20 @@ pub fn count_unique_users(unique_users: Deltas<DeltaBigInt>, s: StoreAddBigInt) 
 This reads from the last module, and emits the count within a hotdog
 
 ***** Rust Code
+#+NAME: lib.rs/Substreams Modules/unique_users/map_unique_users/Rust Code
 #+begin_src rust
 #[substreams::handlers::map]
 pub fn map_unique_users(user_count: StoreGetBigInt) -> Result<Hotdog, SubstreamError> {
     if let Some(user_count) = user_count.get_last("unique_user_count") {
         let mut map: HashMap<String, ValueEnum> = HashMap::new();
-        map.insert("hotdog_name".to_string(), ValueEnum::StringValue("unique_user_count".to_string()));
-        map.insert("unique_user_count".to_string(), ValueEnum::StringValue(user_count.to_string()));
+        map.insert(
+            "hotdog_name".to_string(),
+            ValueEnum::StringValue("unique_user_count".to_string()),
+        );
+        map.insert(
+            "unique_user_count".to_string(),
+            ValueEnum::StringValue(user_count.to_string()),
+        );
         Ok(Hotdog::from_hashmap(map))
     } else {
         Ok(Hotdog::default())
@@ -1429,7 +1532,8 @@ pub fn map_unique_users(user_count: StoreGetBigInt) -> Result<Hotdog, SubstreamE
 }
 #+end_src
 ***** Yaml Definition
-#+begin_src yaml :tangle substreams.yaml
+#+NAME: lib.rs/Substreams Modules/unique_users/map_unique_users/Yaml Definition
+#+begin_src yaml :tangle "substreams.yaml" :noweb-ref substream-module-yaml-defs
   - name: map_unique_users
     kind: map
     inputs:
@@ -1443,9 +1547,10 @@ This idea here is to build a module which mimics what you see on the etherscan o
 
 This module will also include support for general EOA's, however for now I want to build for what people will mainly use.
 
-This module takes in an input identical to [[*map_events]], the form of "ADDRESS&&ABI"
+This module takes in an input identical to [[*map_events][map_events]], the form of "ADDRESS&&ABI"
 
 **** Rust Code
+#+NAME: lib.rs/Substreams Modules/etherscan_overview/Rust Code
 #+begin_src rust
 // takes an input string of address&&abi*
 #[substreams::handlers::map]
@@ -1496,10 +1601,13 @@ pub fn etherscan_overview(param: String, blk: eth::Block) -> Result<Hotdogs, Sub
                 });
                 let signature = match function {
                     Some(function) => function.name.clone(),
-                    None => format_hex(&method_signature)
+                    None => format_hex(&method_signature),
                 };
                 // TODO add the tx meta stuff
-                output_map.insert("hotdog_name".to_string(), ValueEnum::StringValue("etherscan_overview".to_string()));
+                output_map.insert(
+                    "hotdog_name".to_string(),
+                    ValueEnum::StringValue("etherscan_overview".to_string()),
+                );
                 output_map.insert("from".to_string(), ValueEnum::StringValue(from));
                 output_map.insert("to".to_string(), ValueEnum::StringValue(to));
                 output_map.insert("method".to_string(), ValueEnum::StringValue(signature));
@@ -1514,11 +1622,14 @@ pub fn etherscan_overview(param: String, blk: eth::Block) -> Result<Hotdogs, Sub
                 });
                 let signature = match function {
                     Some(function) => function.name.clone(),
-                    None => format_hex(&method_signature)
+                    None => format_hex(&method_signature),
                 };
 
                 // TODO add the tx meta stuff
-                output_map.insert("hotdog_name".to_string(), ValueEnum::StringValue("etherscan_overview".to_string()));
+                output_map.insert(
+                    "hotdog_name".to_string(),
+                    ValueEnum::StringValue("etherscan_overview".to_string()),
+                );
                 output_map.insert("from".to_string(), ValueEnum::StringValue(from));
                 output_map.insert("to".to_string(), ValueEnum::StringValue(to));
                 output_map.insert("method".to_string(), ValueEnum::StringValue(signature));
@@ -1529,13 +1640,12 @@ pub fn etherscan_overview(param: String, blk: eth::Block) -> Result<Hotdogs, Sub
         })
         .collect();
 
-    Ok(Hotdogs{ hotdogs })
-
-
+    Ok(Hotdogs { hotdogs })
 }
 #+end_src
 **** Yaml Definition
-#+begin_src yaml :tangle substreams.yaml
+#+NAME: lib.rs/Substreams Modules/etherscan_overview/Yaml Definition
+#+begin_src yaml :tangle "substreams.yaml" :noweb-ref substream-module-yaml-defs
   - name: etherscan_overview
     kind: map
     inputs:
@@ -1549,6 +1659,7 @@ pub fn etherscan_overview(param: String, blk: eth::Block) -> Result<Hotdogs, Sub
 This module just tracks how much gas each contract is using
 
 **** Rust Code
+#+NAME: lib.rs/Substreams Modules/gas_guzzlers/Rust Code
 #+begin_src rust
 // takes an input string of address&&abi*
 #[substreams::handlers::map]
@@ -1578,25 +1689,39 @@ pub fn gas_guzzlers(blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
 
             let mut output_map: HashMap<String, ValueEnum> = HashMap::new();
             // TODO add the tx meta stuff
-            output_map.insert("hotdog_name".to_string(), ValueEnum::StringValue("etherscan_overview".to_string()));
+            output_map.insert(
+                "hotdog_name".to_string(),
+                ValueEnum::StringValue("etherscan_overview".to_string()),
+            );
             output_map.insert("from".to_string(), ValueEnum::StringValue(from));
             output_map.insert("contract_address".to_string(), ValueEnum::StringValue(to));
-            output_map.insert("method".to_string(), ValueEnum::StringValue(method_signature));
-            output_map.insert("block_hash".to_string(), ValueEnum::StringValue(block_hash.clone()));
-            output_map.insert("block_number".to_string(), ValueEnum::Uint64Value(block_number));
-            output_map.insert("block_timestamp".to_string(), ValueEnum::Uint64Value(block_timestamp.parse::<u64>().unwrap()));
+            output_map.insert(
+                "method".to_string(),
+                ValueEnum::StringValue(method_signature),
+            );
+            output_map.insert(
+                "block_hash".to_string(),
+                ValueEnum::StringValue(block_hash.clone()),
+            );
+            output_map.insert(
+                "block_number".to_string(),
+                ValueEnum::Uint64Value(block_number),
+            );
+            output_map.insert(
+                "block_timestamp".to_string(),
+                ValueEnum::Uint64Value(block_timestamp.parse::<u64>().unwrap()),
+            );
             output_map.insert("gas_used".to_string(), ValueEnum::Uint64Value(gas));
             Some(Hotdog::from(output_map))
         })
         .collect();
 
-    Ok(Hotdogs{ hotdogs })
-
-
+    Ok(Hotdogs { hotdogs })
 }
 #+end_src
 **** Yaml Definition
-#+begin_src yaml :tangle substreams.yaml
+#+NAME: lib.rs/Substreams Modules/gas_guzzlers/Yaml Definition
+#+begin_src yaml :tangle "substreams.yaml" :noweb-ref substream-module-yaml-defs
   - name: gas_guzzlers
     kind: map
     inputs:
