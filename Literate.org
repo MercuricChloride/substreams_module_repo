@@ -1,7 +1,8 @@
 #+title: Substreams Module Repo
 #+date:    2023-06-29
 
-* Tasks [0/5]
+* Tasks [0/6]
+- [ ] Add correct type conversion for things like token id etc.
 - [ ] Add the superrare nft trade module
 - [ ] Figure out why the filter_blur_trades module doesn't work with 1 input address
 - [ ] Add some new modules for DAOs
@@ -832,10 +833,9 @@ The general file structure is as such:
 <<substream-modules>>
 #+end_src
 
-
 ** Imports and module declarations
 #+NAME: lib.rs/Rust Modules
-#+begin_src rust :tangle no
+#+begin_src rust
 mod abi_constants;
 pub mod helpers;
 pub mod nft_helpers;
@@ -843,8 +843,7 @@ mod pb;
 #+end_src
 
 #+NAME: lib.rs/Imports
-
-#+begin_src rust :noweb yes :tangle no :noweb-ref lib.rs-imports-and-modules
+#+begin_src rust :noweb yes :noweb-ref lib.rs-imports-and-modules
 <<lib.rs/Rust Modules>>
 use ethereum_abi::Abi;
 use helpers::{format_hex, log_to_hotdog, HotdogHelpers, UpdateTables};
@@ -880,7 +879,6 @@ This module takes in a param string of the form
 You can repeat this pattern, so long as every contract address has a abi that follows it.
 
 The output of this module will be a [[#Hotdog][Hotdog]]
-
 
 **** Rust Code
 #+NAME: lib.rs/Substreams Modules/map_events/Rust Code
@@ -939,7 +937,7 @@ pub fn map_events(param: String, blk: eth::Block) -> Result<Hotdogs, SubstreamEr
 #+end_src
 **** Yaml Definition
 #+NAME: lib.rs/Substreams Modules/map_events/Yaml Definition
-#+begin_src yaml :tangle "substreams.yaml" :noweb-ref substream-module-yaml-defs
+#+begin_src yaml :noweb-ref substream-module-yaml-defs
   - name: map_events
     kind: map
     inputs:
@@ -981,7 +979,7 @@ fn filter_events(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamEr
 #+end_src
 **** Yaml Definition
 #+NAME: lib.rs/Substreams Modules/filter_events/Yaml Definition
-#+begin_src yaml :tangle "substreams.yaml" :noweb-ref substream-module-yaml-defs
+#+begin_src yaml :noweb-ref substream-module-yaml-defs
   - name: filter_events
     kind: map
     inputs:
@@ -1038,7 +1036,7 @@ pub fn all_blur_trades(blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
 #+end_src
 **** Yaml Definition
 #+NAME: lib.rs/Substreams Modules/all_blur_trades/Yaml Definition
-#+begin_src yaml :tangle "substreams.yaml" :noweb-ref substream-module-yaml-defs
+#+begin_src yaml :noweb-ref substream-module-yaml-defs
   - name: all_blur_trades
     kind: map
     inputs:
@@ -1124,7 +1122,7 @@ fn filter_blur_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, Substr
 #+end_src
 **** Yaml Definition
 #+NAME: lib.rs/Substreams Modules/filter_blur_trades/Yaml Definition
-#+begin_src yaml :tangle "substreams.yaml" :noweb-ref substream-module-yaml-defs
+#+begin_src yaml :noweb-ref substream-module-yaml-defs
   - name: filter_blur_trades
     kind: map
     inputs:
@@ -1156,7 +1154,7 @@ pub fn blur_trades(hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
 #+end_src
 **** Yaml Definition
 #+NAME: lib.rs/Substreams Modules/blur_trades/Yaml Definition
-#+begin_src yaml :tangle "substreams.yaml" :noweb-ref substream-module-yaml-defs
+#+begin_src yaml :noweb-ref substream-module-yaml-defs
   - name: blur_trades
     kind: map
     inputs:
@@ -1212,7 +1210,7 @@ pub fn all_seaport_trades(blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
 #+end_src
 **** Yaml Definition
 #+NAME: lib.rs/Substreams Modules/all_seaport_trades/Yaml Definition
-#+begin_src yaml :tangle "substreams.yaml" :noweb-ref substream-module-yaml-defs
+#+begin_src yaml :noweb-ref substream-module-yaml-defs
   - name: all_seaport_trades
     kind: map
     inputs:
@@ -1309,7 +1307,7 @@ fn filter_seaport_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, Sub
 #+end_src
 **** Yaml Definition
 #+NAME: lib.rs/Substreams Modules/filter_seaport_trades/Yaml Definition
-#+begin_src yaml :tangle "substreams.yaml" :noweb-ref substream-module-yaml-defs
+#+begin_src yaml :noweb-ref substream-module-yaml-defs
   - name: filter_seaport_trades
     kind: map
     inputs:
@@ -1346,7 +1344,7 @@ pub fn seaport_trades(hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
 
 **** Yaml Definition
 #+NAME: lib.rs/Substreams Modules/seaport_trades/Yaml Definition
-#+begin_src yaml :tangle "substreams.yaml" :noweb-ref substream-module-yaml-defs
+#+begin_src yaml :noweb-ref substream-module-yaml-defs
   - name: seaport_trades
     kind: map
     inputs:
@@ -1384,7 +1382,7 @@ pub fn graph_out(hotdogs: Hotdogs) -> Result<EntityChanges, SubstreamError> {
 #+end_src
 **** Yaml Definition
 #+NAME: lib.rs/Substreams Modules/graph_out/Yaml Definition
-#+begin_src yaml :tangle "substreams.yaml" :noweb-ref substream-module-yaml-defs
+#+begin_src yaml :noweb-ref substream-module-yaml-defs
   - name: graph_out
     kind: map
     inputs:
@@ -1429,7 +1427,7 @@ fn store_ownership_distribution(hotdogs: Hotdogs, s: StoreAddBigInt) {
 #+end_src
 **** Yaml Definition
 #+NAME: lib.rs/Substreams Modules/ownership_distribution/Yaml Definition
-#+begin_src yaml :tangle "substreams.yaml" :noweb-ref substream-module-yaml-defs
+#+begin_src yaml :noweb-ref substream-module-yaml-defs
   - name: ownership_distribution
     kind: store
     updatePolicy: add
@@ -1469,7 +1467,7 @@ pub fn store_unique_users(hotdogs: Hotdogs, s: StoreSetIfNotExistsBigInt) {
 #+end_src
 ***** Yaml Definition
 #+NAME: lib.rs/Substreams Modules/unique_users/store_unique_users/Yaml Definition
-#+begin_src yaml :tangle "substreams.yaml" :noweb-ref substream-module-yaml-defs
+#+begin_src yaml :noweb-ref substream-module-yaml-defs
   - name: store_unique_users
     kind: store
     updatePolicy: set_if_not_exists
@@ -1498,7 +1496,7 @@ pub fn count_unique_users(unique_users: Deltas<DeltaBigInt>, s: StoreAddBigInt) 
 #+end_src
 ***** Yaml definition
 #+NAME: lib.rs/Substreams Modules/unique_users/count_unique_users/Yaml definition
-#+begin_src yaml :tangle "substreams.yaml" :noweb-ref substream-module-yaml-defs
+#+begin_src yaml :noweb-ref substream-module-yaml-defs
   - name: count_unique_users
     kind: store
     updatePolicy: add
@@ -1533,7 +1531,7 @@ pub fn map_unique_users(user_count: StoreGetBigInt) -> Result<Hotdog, SubstreamE
 #+end_src
 ***** Yaml Definition
 #+NAME: lib.rs/Substreams Modules/unique_users/map_unique_users/Yaml Definition
-#+begin_src yaml :tangle "substreams.yaml" :noweb-ref substream-module-yaml-defs
+#+begin_src yaml :noweb-ref substream-module-yaml-defs
   - name: map_unique_users
     kind: map
     inputs:
@@ -1645,7 +1643,7 @@ pub fn etherscan_overview(param: String, blk: eth::Block) -> Result<Hotdogs, Sub
 #+end_src
 **** Yaml Definition
 #+NAME: lib.rs/Substreams Modules/etherscan_overview/Yaml Definition
-#+begin_src yaml :tangle "substreams.yaml" :noweb-ref substream-module-yaml-defs
+#+begin_src yaml :noweb-ref substream-module-yaml-defs
   - name: etherscan_overview
     kind: map
     inputs:
@@ -1721,7 +1719,7 @@ pub fn gas_guzzlers(blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
 #+end_src
 **** Yaml Definition
 #+NAME: lib.rs/Substreams Modules/gas_guzzlers/Yaml Definition
-#+begin_src yaml :tangle "substreams.yaml" :noweb-ref substream-module-yaml-defs
+#+begin_src yaml :noweb-ref substream-module-yaml-defs
   - name: gas_guzzlers
     kind: map
     inputs:

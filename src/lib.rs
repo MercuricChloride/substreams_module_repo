@@ -1,5 +1,5 @@
-// [[file:../Literate.org::*General File Structure][General File Structure:1]]
-// [[file:Literate.org::*General File Structure][]]
+// [[file:../Literate.org::*lib.rs][lib.rs:1]]
+// [[file:Literate.org::*lib.rs][lib.rs/Imports]]
 // [[file:Literate.org::lib.rs/Rust Modules][lib.rs/Rust Modules]]
 mod abi_constants;
 pub mod helpers;
@@ -24,9 +24,9 @@ use substreams::{
 };
 use substreams_entity_change::{pb::entity::EntityChanges, tables::Tables};
 use substreams_ethereum::pb::eth::v2 as eth;
-// ends here
+// lib.rs/Imports ends here
 
-// [[file:Literate.org::*General File Structure][lib.rs/Substreams Modules/map_events/Rust Code]]
+// [[file:Literate.org::*lib.rs][lib.rs/Substreams Modules/map_events/Rust Code]]
 // takes an input string of address&&abi*
 #[substreams::handlers::map]
 pub fn map_events(param: String, blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
@@ -79,7 +79,7 @@ pub fn map_events(param: String, blk: eth::Block) -> Result<Hotdogs, SubstreamEr
     Ok(Hotdogs { hotdogs })
 }
 // lib.rs/Substreams Modules/map_events/Rust Code ends here
-// [[file:Literate.org::*General File Structure][lib.rs/Substreams Modules/filter_events/Rust Code]]
+// [[file:Literate.org::*lib.rs][lib.rs/Substreams Modules/filter_events/Rust Code]]
 // Takes in a param string of the form
 // Transfer&&Approval
 // Keeps all events that match the names in the param
@@ -97,7 +97,7 @@ fn filter_events(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamEr
     })
 }
 // lib.rs/Substreams Modules/filter_events/Rust Code ends here
-// [[file:Literate.org::*General File Structure][lib.rs/Substreams Modules/all_blur_trades/Rust Code]]
+// [[file:Literate.org::*lib.rs][lib.rs/Substreams Modules/all_blur_trades/Rust Code]]
 #[substreams::handlers::map]
 pub fn all_blur_trades(blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
     let mut contract_info: HashMap<String, Abi> = HashMap::new();
@@ -136,7 +136,7 @@ pub fn all_blur_trades(blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
     Ok(Hotdogs { hotdogs })
 }
 // lib.rs/Substreams Modules/all_blur_trades/Rust Code ends here
-// [[file:Literate.org::*General File Structure][lib.rs/Substreams Modules/filter_blur_trades/Rust Code]]
+// [[file:Literate.org::*lib.rs][lib.rs/Substreams Modules/filter_blur_trades/Rust Code]]
 // filter all orders by a specific address
 #[substreams::handlers::map]
 fn filter_blur_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
@@ -197,7 +197,7 @@ fn filter_blur_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, Substr
     })
 }
 // lib.rs/Substreams Modules/filter_blur_trades/Rust Code ends here
-// [[file:Literate.org::*General File Structure][lib.rs/Substreams Modules/blur_trades/Rust Code]]
+// [[file:Literate.org::*lib.rs][lib.rs/Substreams Modules/blur_trades/Rust Code]]
 #[substreams::handlers::map]
 pub fn blur_trades(hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
     let hotdogs = hotdogs
@@ -212,7 +212,7 @@ pub fn blur_trades(hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
     Ok(Hotdogs { hotdogs })
 }
 // lib.rs/Substreams Modules/blur_trades/Rust Code ends here
-// [[file:../Literate.org::*General File Structure][lib.rs/Substreams Modules/all_seaport_trades/Rust Code]]
+// [[file:../Literate.org::*lib.rs][lib.rs/Substreams Modules/all_seaport_trades/Rust Code]]
 #[substreams::handlers::map]
 pub fn all_seaport_trades(blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
     let mut contract_info: HashMap<String, Abi> = HashMap::new();
@@ -251,7 +251,7 @@ pub fn all_seaport_trades(blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
     Ok(Hotdogs { hotdogs })
 }
 // lib.rs/Substreams Modules/all_seaport_trades/Rust Code ends here
-// [[file:../Literate.org::*General File Structure][lib.rs/Substreams Modules/filter_seaport_trades/Rust Code]]
+// [[file:../Literate.org::*lib.rs][lib.rs/Substreams Modules/filter_seaport_trades/Rust Code]]
 // filter all orders by a specific address
 #[substreams::handlers::map]
 fn filter_seaport_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
@@ -329,7 +329,7 @@ fn filter_seaport_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, Sub
     })
 }
 // lib.rs/Substreams Modules/filter_seaport_trades/Rust Code ends here
-// [[file:Literate.org::*General File Structure][lib.rs/Substreams Modules/seaport_trades/Rust Code]]
+// [[file:Literate.org::*lib.rs][lib.rs/Substreams Modules/seaport_trades/Rust Code]]
 #[substreams::handlers::map]
 pub fn seaport_trades(hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
     let hotdogs = hotdogs
@@ -344,7 +344,7 @@ pub fn seaport_trades(hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
     Ok(Hotdogs { hotdogs })
 }
 // lib.rs/Substreams Modules/seaport_trades/Rust Code ends here
-// [[file:Literate.org::*General File Structure][lib.rs/Substreams Modules/graph_out/Rust Code]]
+// [[file:Literate.org::*lib.rs][lib.rs/Substreams Modules/graph_out/Rust Code]]
 #[substreams::handlers::map]
 pub fn graph_out(hotdogs: Hotdogs) -> Result<EntityChanges, SubstreamError> {
     let mut tables = Tables::new();
@@ -358,7 +358,7 @@ pub fn graph_out(hotdogs: Hotdogs) -> Result<EntityChanges, SubstreamError> {
     Ok(tables.to_entity_changes())
 }
 // lib.rs/Substreams Modules/graph_out/Rust Code ends here
-// [[file:Literate.org::*General File Structure][lib.rs/Substreams Modules/ownership_distribution/Rust Code]]
+// [[file:Literate.org::*lib.rs][lib.rs/Substreams Modules/ownership_distribution/Rust Code]]
 #[substreams::handlers::store]
 fn store_ownership_distribution(hotdogs: Hotdogs, s: StoreAddBigInt) {
     // the hotdogs will be transfer events
@@ -385,7 +385,7 @@ fn store_ownership_distribution(hotdogs: Hotdogs, s: StoreAddBigInt) {
     }
 }
 // lib.rs/Substreams Modules/ownership_distribution/Rust Code ends here
-// [[file:Literate.org::*General File Structure][lib.rs/Substreams Modules/unique_users/store_unique_users/Rust Code]]
+// [[file:Literate.org::*lib.rs][lib.rs/Substreams Modules/unique_users/store_unique_users/Rust Code]]
 #[substreams::handlers::store]
 pub fn store_unique_users(hotdogs: Hotdogs, s: StoreSetIfNotExistsBigInt) {
     for hotdog in hotdogs.hotdogs {
@@ -404,7 +404,7 @@ pub fn store_unique_users(hotdogs: Hotdogs, s: StoreSetIfNotExistsBigInt) {
     }
 }
 // lib.rs/Substreams Modules/unique_users/store_unique_users/Rust Code ends here
-// [[file:Literate.org::*General File Structure][lib.rs/Substreams Modules/unique_users/count_unique_users/Rust Code]]
+// [[file:Literate.org::*lib.rs][lib.rs/Substreams Modules/unique_users/count_unique_users/Rust Code]]
 #[substreams::handlers::store]
 pub fn count_unique_users(unique_users: Deltas<DeltaBigInt>, s: StoreAddBigInt) {
     for delta in unique_users.deltas {
@@ -415,7 +415,7 @@ pub fn count_unique_users(unique_users: Deltas<DeltaBigInt>, s: StoreAddBigInt) 
     }
 }
 // lib.rs/Substreams Modules/unique_users/count_unique_users/Rust Code ends here
-// [[file:Literate.org::*General File Structure][lib.rs/Substreams Modules/unique_users/map_unique_users/Rust Code]]
+// [[file:Literate.org::*lib.rs][lib.rs/Substreams Modules/unique_users/map_unique_users/Rust Code]]
 #[substreams::handlers::map]
 pub fn map_unique_users(user_count: StoreGetBigInt) -> Result<Hotdog, SubstreamError> {
     if let Some(user_count) = user_count.get_last("unique_user_count") {
@@ -434,7 +434,7 @@ pub fn map_unique_users(user_count: StoreGetBigInt) -> Result<Hotdog, SubstreamE
     }
 }
 // lib.rs/Substreams Modules/unique_users/map_unique_users/Rust Code ends here
-// [[file:Literate.org::*General File Structure][lib.rs/Substreams Modules/etherscan_overview/Rust Code]]
+// [[file:Literate.org::*lib.rs][lib.rs/Substreams Modules/etherscan_overview/Rust Code]]
 // takes an input string of address&&abi*
 #[substreams::handlers::map]
 pub fn etherscan_overview(param: String, blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
@@ -526,7 +526,7 @@ pub fn etherscan_overview(param: String, blk: eth::Block) -> Result<Hotdogs, Sub
     Ok(Hotdogs { hotdogs })
 }
 // lib.rs/Substreams Modules/etherscan_overview/Rust Code ends here
-// [[file:Literate.org::*General File Structure][lib.rs/Substreams Modules/gas_guzzlers/Rust Code]]
+// [[file:Literate.org::*lib.rs][lib.rs/Substreams Modules/gas_guzzlers/Rust Code]]
 // takes an input string of address&&abi*
 #[substreams::handlers::map]
 pub fn gas_guzzlers(blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
@@ -585,7 +585,7 @@ pub fn gas_guzzlers(blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
     Ok(Hotdogs { hotdogs })
 }
 // lib.rs/Substreams Modules/gas_guzzlers/Rust Code ends here
-// General File Structure:1 ends here
+// lib.rs:1 ends here
 
 // [[file:../Literate.org::lib.rs/Substreams Modules/all_seaport_trades/Rust Code][lib.rs/Substreams Modules/all_seaport_trades/Rust Code]]
 #[substreams::handlers::map]
