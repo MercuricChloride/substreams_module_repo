@@ -1,7 +1,7 @@
 #+title: Substreams Module Repo
 #+date:    2023-06-29
 
-* Tasks [0/6]
+* Tasks [1/8]
 - [ ] Add correct type conversion for things like token id etc.
 - [ ] Add the superrare nft trade module
 - [ ] Figure out why the filter_blur_trades module doesn't work with 1 input address
@@ -11,6 +11,8 @@
       Right now we are only handling trades from seaport if there is a single collection someone is trading for.
       We should probably also add support for many to many swaps
 - [ ] Add EOA support to the [[*etherscan_overview][etherscan_overview]] module
+- [X] Make the [[*nft_price]] module
+- [ ]
 * Notes
 This is a test of literate programming with lsp-mode in emacs
 
@@ -201,7 +203,7 @@ So we need to read each ABI, and write it to some constant file, and import it w
 
 * helpers.rs
 :PROPERTIES:
-:header-args: :tangle "src/helpers.rs"
+:header-args: :tangle "src/helpers.rs" :comments link
 :END:
 A collection of helper functions to make life easier
 
@@ -209,14 +211,15 @@ A collection of helper functions to make life easier
 
 #+NAME: helpers.rs/Imports
 #+begin_src rust
-use std::str::FromStr;
-use std::{collections::HashMap, ops::Mul, str::from_utf8};
 use ethereum_abi::Value;
 use fancy_regex::Regex;
+use std::str::FromStr;
+use std::{collections::HashMap, ops::Mul, str::from_utf8};
 use substreams_entity_change::tables::Tables;
+use substreams_ethereum::pb::eth::v2::TransactionTrace;
 
-use crate::pb::soulbound_modules::v1::{Hotdog, Hotdogs, Map};
 use crate::pb::soulbound_modules::v1::{value::Value as ValueEnum, Value as ValueStruct};
+use crate::pb::soulbound_modules::v1::{Hotdog, Hotdogs, Map};
 use sha3::{self, Digest};
 use substreams::log::println;
 use substreams::{scalar::BigInt, Hex};
@@ -241,14 +244,16 @@ Also with values, the syntax can be gnarly, but most values impliment a .into() 
 #+begin_src rust
 impl From<Hotdog> for HashMap<String, ValueEnum> {
     fn from(hotdog: Hotdog) -> Self {
-        let mut map:HashMap<String, ValueEnum> = HashMap::new();
-
+        let mut map: HashMap<String, ValueEnum> = HashMap::new();
 
         for (key, value) in hotdog.map.as_ref().unwrap().keys.iter() {
             map.insert(key.to_string(), value.value.clone().unwrap());
         }
 
-        map.insert("hotdog_name".to_string(), ValueEnum::StringValue(hotdog.hotdog_name.clone()));
+        map.insert(
+            "hotdog_name".to_string(),
+            ValueEnum::StringValue(hotdog.hotdog_name.clone()),
+        );
 
         map
     }
@@ -262,20 +267,29 @@ impl From<HashMap<String, ValueEnum>> for Hotdog {
     fn from(map: HashMap<String, ValueEnum>) -> Self {
         let mut new_map: HashMap<String, ValueStruct> = HashMap::new();
 
-        let hotdog_name = if let ValueEnum::StringValue(name) = map.get("hotdog_name").unwrap().clone() {
-            name
-        } else {
-            panic!("No hotdog_name in hashmap");
-        };
+        let hotdog_name =
+            if let ValueEnum::StringValue(name) = map.get("hotdog_name").unwrap().clone() {
+                name
+            } else {
+                panic!("No hotdog_name in hashmap");
+            };
 
         for (key, value) in map {
             if key == "hotdog_name" {
                 continue;
             }
-            new_map.insert(key.clone(), ValueStruct{ value: Some(value.clone()) });
+            new_map.insert(
+                key.clone(),
+                ValueStruct {
+                    value: Some(value.clone()),
+                },
+            );
         }
 
-        Hotdog { hotdog_name, map: Some(Map {keys: new_map} )}
+        Hotdog {
+            hotdog_name,
+            map: Some(Map { keys: new_map }),
+        }
     }
 }
 #+end_src
@@ -292,17 +306,36 @@ pub fn log_to_hotdog(
 ) -> Option<Hotdog> {
     let mut map = HashMap::new();
 
-    let topics = &log.topics().iter().map(|topic| {
-        primitive_types::H256::from_slice(&topic[..])
-    }).collect::<Vec<_>>();
+    let topics = &log
+        .topics()
+        .iter()
+        .map(|topic| primitive_types::H256::from_slice(&topic[..]))
+        .collect::<Vec<_>>();
 
-    add_tx_meta(&mut map, log, block_timestamp, block_hash, block_number);
+    add_tx_meta(
+        &mut map,
+        Some(log),
+        log.receipt.transaction,
+        block_timestamp,
+        block_hash,
+        block_number,
+    );
 
-    if let Ok((event, params)) = &abi.decode_log_from_slice(&topics[..] , log.data()) {
+    if let Ok((event, params)) = &abi.decode_log_from_slice(&topics[..], log.data()) {
         let decoded_params = params;
         let mut map: HashMap<String, ValueEnum> = HashMap::new();
-        map.insert("hotdog_name".to_string(), ValueEnum::StringValue(event.name.clone()));
-        add_tx_meta(&mut map, &log, &block_timestamp, &block_hash, block_number);
+        map.insert(
+            "hotdog_name".to_string(),
+            ValueEnum::StringValue(event.name.clone()),
+        );
+        add_tx_meta(
+            &mut map,
+            Some(log),
+            log.receipt.transaction,
+            block_timestamp,
+            block_hash,
+            block_number,
+        );
 
         for kv in decoded_params.iter() {
             let param = &kv.param;
@@ -325,7 +358,7 @@ impl Into<ValueEnum> for ValueStruct {
     fn into(self) -> ValueEnum {
         match self.value {
             Some(value) => value,
-            None => panic!("value must be present")
+            None => panic!("value must be present"),
         }
     }
 }
@@ -338,9 +371,10 @@ Another type conversion that helps with the syntax soup.
 #+begin_src rust
 impl Into<HashMap<String, ValueEnum>> for Map {
     fn into(self) -> HashMap<String, ValueEnum> {
-        self.keys.into_iter().map(|(key, value)| {
-            (key, value.into())
-        }).collect()
+        self.keys
+            .into_iter()
+            .map(|(key, value)| (key, value.into()))
+            .collect()
     }
 }
 #+end_src
@@ -374,41 +408,46 @@ Just some more miscellaneous functions
 Adds the event log transaction metadata to a hotdog.
 
 This data is generally good to have
+
 #+NAME: helpers.rs/Hotdog Helpers/Misc Functions/Add tx meta
 #+begin_src rust
 pub fn add_tx_meta(
     map: &mut HashMap<String, ValueEnum>,
-    log: &LogView,
+    log: Option<&LogView>,
+    transaction: &TransactionTrace,
     block_timestamp: &String,
     block_hash: &String,
     block_number: u64,
 ) {
-    map.insert(
-        "tx_log_index".to_string(),
-        ValueEnum::StringValue(log.index().to_string()),
-    );
+    if let Some(log) = log {
+        map.insert(
+            "tx_log_index".to_string(),
+            ValueEnum::Uint64Value(log.index() as u64),
+        );
+    }
+
     map.insert(
         "tx_hash".to_string(),
-        ValueEnum::StringValue(format_hex(&log.receipt.transaction.hash)),
+        ValueEnum::StringValue(format_hex(&transaction.hash)),
     );
     map.insert(
         "tx_index".to_string(),
-        ValueEnum::StringValue(log.receipt.transaction.index.to_string()),
+        ValueEnum::Uint64Value(transaction.index as u64),
     );
     map.insert(
         "tx_from".to_string(),
-        ValueEnum::StringValue(format_hex(&log.receipt.transaction.from)),
+        ValueEnum::StringValue(format_hex(&transaction.from)),
     );
     map.insert(
         "tx_to".to_string(),
-        ValueEnum::StringValue(format_hex(&log.receipt.transaction.to)),
+        ValueEnum::StringValue(format_hex(&transaction.to)),
     );
-    let gas_used = log.receipt.transaction.gas_used;
+    let gas_used = transaction.gas_used;
     map.insert(
         "tx_gas_used".to_string(),
         ValueEnum::StringValue(gas_used.to_string()),
     );
-    if let Some(gas_price) = &log.receipt.transaction.gas_price {
+    if let Some(gas_price) = &transaction.gas_price {
         let gas_price = BigInt::from_unsigned_bytes_be(&gas_price.bytes);
         map.insert(
             "tx_gas_price".to_string(),
@@ -419,15 +458,35 @@ pub fn add_tx_meta(
             ValueEnum::StringValue(gas_price.mul(gas_used).to_string()),
         );
     }
-    map.insert("block_number".to_string(), ValueEnum::Uint64Value(block_number));
     map.insert(
-        "block_hash".to_string(),
+        "tx_block_number".to_string(),
+        ValueEnum::Uint64Value(block_number),
+    );
+    map.insert(
+        "tx_block_hash".to_string(),
         ValueEnum::StringValue(block_hash.clone()),
     );
     map.insert(
-        "block_timestamp".to_string(),
-        ValueEnum::StringValue(block_timestamp.clone()),
+        "tx_block_timestamp".to_string(),
+        ValueEnum::Uint64Value(block_timestamp.parse::<u64>().unwrap()),
     );
+}
+#+end_src
+**** clone_prefix
+This function clones all values from the source_map that start with a prefix string, to the output hashmap.
+
+#+NAME: helpers.rs/Hotdog Helpers/Misc Functions/clone_prefix
+#+begin_src rust
+pub fn clone_prefix(
+    source_map: &HashMap<String, ValueEnum>,
+    output_map: &mut HashMap<String, ValueEnum>,
+    prefix: &String,
+) {
+    for (key, value) in source_map.iter() {
+        if key.starts_with(prefix) {
+            output_map.insert(key.clone(), value.clone());
+        }
+    }
 }
 #+end_src
 **** Update Tables Trait and Impl
@@ -454,7 +513,7 @@ impl UpdateTables for Hotdog {
             (ValueEnum::StringValue(tx_hash), ValueEnum::StringValue(tx_log_index)) => {
                 format!("{}-{}", tx_hash, tx_log_index)
             }
-            _ => panic!("tx_hash and tx_log_index must be strings")
+            _ => panic!("tx_hash and tx_log_index must be strings"),
         }
     }
 
@@ -494,18 +553,21 @@ pub fn param_value_to_value_enum(value: &Value) -> ValueEnum {
     match value {
         Value::Uint(uint, _) => ValueEnum::StringValue(uint.to_string()),
         Value::Int(int, _) => ValueEnum::StringValue(int.to_string()),
-        Value::Address(address) => ValueEnum::StringValue(format!("{:?}",address)),
+        Value::Address(address) => ValueEnum::StringValue(format!("{:?}", address)),
         Value::Bool(boolean) => ValueEnum::StringValue(boolean.to_string()),
         Value::FixedBytes(bytes) => ValueEnum::StringValue(format_hex(&bytes)),
         Value::FixedArray(array, _) => {
             let mut map = HashMap::new();
             for i in 0..array.len() {
                 let value = &array[i];
-                map.insert(i.to_string(), ValueStruct { value: Some(param_value_to_value_enum(&value))});
+                map.insert(
+                    i.to_string(),
+                    ValueStruct {
+                        value: Some(param_value_to_value_enum(&value)),
+                    },
+                );
             }
-            ValueEnum::MapValue(
-                Map { keys: map }
-            )
+            ValueEnum::MapValue(Map { keys: map })
         }
         Value::String(string) => ValueEnum::StringValue(string.to_string()),
         Value::Bytes(bytes) => ValueEnum::StringValue(format_hex(&bytes)),
@@ -513,20 +575,26 @@ pub fn param_value_to_value_enum(value: &Value) -> ValueEnum {
             let mut map = HashMap::new();
             for i in 0..array.len() {
                 let value = &array[i];
-                map.insert(i.to_string(), ValueStruct { value: Some(param_value_to_value_enum(&value))});
+                map.insert(
+                    i.to_string(),
+                    ValueStruct {
+                        value: Some(param_value_to_value_enum(&value)),
+                    },
+                );
             }
-            ValueEnum::MapValue(
-                Map { keys: map }
-            )
+            ValueEnum::MapValue(Map { keys: map })
         }
         Value::Tuple(tuple_arr) => {
             let mut map = HashMap::new();
             for (name, value) in tuple_arr.iter() {
-                map.insert(name.to_string(), ValueStruct { value: Some(param_value_to_value_enum(&value))});
+                map.insert(
+                    name.to_string(),
+                    ValueStruct {
+                        value: Some(param_value_to_value_enum(&value)),
+                    },
+                );
             }
-            ValueEnum::MapValue(
-                Map { keys: map }
-            )
+            ValueEnum::MapValue(Map { keys: map })
         }
     }
 }
@@ -536,7 +604,7 @@ pub fn param_value_to_value_enum(value: &Value) -> ValueEnum {
 #+NAME: helpers.rs/General Helpers/Format Hex
 #+begin_src rust
 pub fn format_hex(hex: &[u8]) -> String {
-  format!("0x{}", Hex(hex).to_string())
+    format!("0x{}", Hex(hex).to_string())
 }
 #+end_src
 * nft_helpers.rs
@@ -546,7 +614,7 @@ pub fn format_hex(hex: &[u8]) -> String {
 ** Imports
 #+NAME: nft_helpers.rs/Imports
 #+begin_src rust
-use crate::ValueEnum;
+use crate::{ValueEnum, helpers::clone_prefix};
 use std::collections::HashMap;
 use substreams::scalar::{BigInt, BigDecimal};
 use std::str::FromStr;
@@ -610,17 +678,12 @@ fn blur_trade_to_nft_price(hotdog: &Hotdog) -> Result<Hotdog, &str> {
 
     let buy = match map.get("buy") {
         Some(buy) => buy.clone(),
-        None => return Err(stringify!("map does not contain a buy field {:?}", hotdog))
+        None => return Err(stringify!("map does not contain a buy field {:?}", hotdog)),
     };
 
     let sell = match map.get("sell") {
         Some(sell) => sell.clone(),
-        None => return Err(stringify!("map does not contain a sell field {:?}", map))
-    };
-
-    let block_number = match map.get("block_number") {
-        Some(block_number) => block_number.clone(),
-        None => return Err(stringify!("map does not contain a block_number field {:?}", map))
+        None => return Err(stringify!("map does not contain a sell field {:?}", map)),
     };
 
     match (buy, sell) {
@@ -629,7 +692,7 @@ fn blur_trade_to_nft_price(hotdog: &Hotdog) -> Result<Hotdog, &str> {
             let price = buy_map.keys.get("price").unwrap().clone();
             let price_string: String = match price.value.clone().unwrap() {
                 ValueEnum::StringValue(price_string) => price_string,
-                _ => return Err("price is not a string")
+                _ => return Err("price is not a string"),
             };
 
             let price_in_eth = wei_to_eth(&price_string);
@@ -646,10 +709,12 @@ fn blur_trade_to_nft_price(hotdog: &Hotdog) -> Result<Hotdog, &str> {
 
             output_map.insert("payment_token".to_string(), payment_token.into());
             output_map.insert("token_id".to_string(), token_id.into());
-            output_map.insert("block_number".to_string(), block_number.into());
+
+            clone_prefix(&map, &mut output_map, &"tx_".to_string());
+
             Ok(Hotdog::from(output_map))
         }
-        _ => Err("buy and sell are not maps")
+        _ => Err("buy and sell are not maps"),
     }
 }
 #+end_src
@@ -666,11 +731,6 @@ fn seaport_trade_to_nft_price(hotdog: &Hotdog) -> Result<Hotdog, &str> {
 
     let map = hotdog.to_hashmap();
 
-    let block_number = match map.get("block_number") {
-        Some(block_number) => block_number.clone(),
-        None => return Err(stringify!("map does not contain a block_number field {:?}", map))
-    };
-
     let consideration = match map.get("consideration") {
         Some(consideration) => consideration.clone(),
         None => panic!("map does not contain a consideration field {:?}", hotdog)
@@ -683,6 +743,7 @@ fn seaport_trade_to_nft_price(hotdog: &Hotdog) -> Result<Hotdog, &str> {
 
     let mut output_map: HashMap<String, ValueEnum> = HashMap::new();
     output_map.insert("hotdog_name".to_string(), ValueEnum::StringValue("NFTPrice".to_string()));
+    clone_prefix(&map, &mut output_map, &"tx_".to_string());
 
     // the whole thang goes like this:
     // user has an nft I want
@@ -813,6 +874,8 @@ fn seaport_trade_to_nft_price(hotdog: &Hotdog) -> Result<Hotdog, &str> {
                 };
             }
             output_map.insert("price".to_string(), ValueEnum::StringValue(nft_value.to_string()));
+
+
             Ok(Hotdog::from(output_map))
         }
         _ => Ok(Hotdog::default())
@@ -822,16 +885,10 @@ fn seaport_trade_to_nft_price(hotdog: &Hotdog) -> Result<Hotdog, &str> {
 
 * lib.rs
 :PROPERTIES:
-:header-args: :comments noweb
+:header-args: :tangle src/lib.rs :comments link
 :END:
 
 The general file structure is as such:
-
-#+begin_src rust :noweb no-export :tangle src/lib.rs
-<<lib.rs-imports-and-modules>>
-
-<<substream-modules>>
-#+end_src
 
 ** Imports and module declarations
 #+NAME: lib.rs/Rust Modules
@@ -844,9 +901,8 @@ mod pb;
 
 #+NAME: lib.rs/Imports
 #+begin_src rust :noweb yes :noweb-ref lib.rs-imports-and-modules
-<<lib.rs/Rust Modules>>
 use ethereum_abi::Abi;
-use helpers::{format_hex, log_to_hotdog, HotdogHelpers, UpdateTables};
+use helpers::{add_tx_meta, format_hex, log_to_hotdog, HotdogHelpers, UpdateTables};
 use nft_helpers::NftPrice;
 use pb::soulbound_modules::v1::{value::Value as ValueEnum, Hotdog, Hotdogs, Value as ValueStruct};
 use std::collections::HashMap;
@@ -867,9 +923,6 @@ use substreams_ethereum::pb::eth::v2 as eth;
 
 ** Substreams Modules
 :PROPERTIES:
-:CUSTOM_ID: substream_modules
-:HEADER-ARGS: :noweb-ref substream-modules :comments noweb
-:END:
 Functions which represent the modules within the substream
 *** map_events
 This module takes in a param string of the form
@@ -937,7 +990,7 @@ pub fn map_events(param: String, blk: eth::Block) -> Result<Hotdogs, SubstreamEr
 #+end_src
 **** Yaml Definition
 #+NAME: lib.rs/Substreams Modules/map_events/Yaml Definition
-#+begin_src yaml :noweb-ref substream-module-yaml-defs
+#+begin_src yaml :noweb-ref substream-module-yaml-defs :tangle no
   - name: map_events
     kind: map
     inputs:
@@ -979,7 +1032,7 @@ fn filter_events(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamEr
 #+end_src
 **** Yaml Definition
 #+NAME: lib.rs/Substreams Modules/filter_events/Yaml Definition
-#+begin_src yaml :noweb-ref substream-module-yaml-defs
+#+begin_src yaml :noweb-ref substream-module-yaml-defs :tangle no
   - name: filter_events
     kind: map
     inputs:
@@ -1036,7 +1089,7 @@ pub fn all_blur_trades(blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
 #+end_src
 **** Yaml Definition
 #+NAME: lib.rs/Substreams Modules/all_blur_trades/Yaml Definition
-#+begin_src yaml :noweb-ref substream-module-yaml-defs
+#+begin_src yaml :noweb-ref substream-module-yaml-defs :tangle no
   - name: all_blur_trades
     kind: map
     inputs:
@@ -1122,7 +1175,7 @@ fn filter_blur_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, Substr
 #+end_src
 **** Yaml Definition
 #+NAME: lib.rs/Substreams Modules/filter_blur_trades/Yaml Definition
-#+begin_src yaml :noweb-ref substream-module-yaml-defs
+#+begin_src yaml :noweb-ref substream-module-yaml-defs :tangle no
   - name: filter_blur_trades
     kind: map
     inputs:
@@ -1154,7 +1207,7 @@ pub fn blur_trades(hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
 #+end_src
 **** Yaml Definition
 #+NAME: lib.rs/Substreams Modules/blur_trades/Yaml Definition
-#+begin_src yaml :noweb-ref substream-module-yaml-defs
+#+begin_src yaml :noweb-ref substream-module-yaml-defs :tangle no
   - name: blur_trades
     kind: map
     inputs:
@@ -1169,7 +1222,7 @@ It is super similar to [[*map_events][map_events]] in how it operates, just hard
     
 **** Rust Code
 #+NAME: lib.rs/Substreams Modules/all_seaport_trades/Rust Code
-#+begin_src rust :tangle src/lib.rs
+#+begin_src rust
 #[substreams::handlers::map]
 pub fn all_seaport_trades(blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
     let mut contract_info: HashMap<String, Abi> = HashMap::new();
@@ -1210,7 +1263,7 @@ pub fn all_seaport_trades(blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
 #+end_src
 **** Yaml Definition
 #+NAME: lib.rs/Substreams Modules/all_seaport_trades/Yaml Definition
-#+begin_src yaml :noweb-ref substream-module-yaml-defs
+#+begin_src yaml :noweb-ref substream-module-yaml-defs :tangle no
   - name: all_seaport_trades
     kind: map
     inputs:
@@ -1227,7 +1280,7 @@ The same as the [[*filter_blur_trades][filter_blur_trades]], however for seaport
 
 **** Rust Code
 #+NAME: lib.rs/Substreams Modules/filter_seaport_trades/Rust Code
-#+begin_src rust :tangle src/lib.rs
+#+begin_src rust
 // filter all orders by a specific address
 #[substreams::handlers::map]
 fn filter_seaport_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
@@ -1307,7 +1360,7 @@ fn filter_seaport_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, Sub
 #+end_src
 **** Yaml Definition
 #+NAME: lib.rs/Substreams Modules/filter_seaport_trades/Yaml Definition
-#+begin_src yaml :noweb-ref substream-module-yaml-defs
+#+begin_src yaml :noweb-ref substream-module-yaml-defs :tangle no
   - name: filter_seaport_trades
     kind: map
     inputs:
@@ -1322,7 +1375,6 @@ fn filter_seaport_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, Sub
 :END:
 
 Not done yet! But when it is, it will convert a seaport trade into a [[#nft_price][nft price]]
-
 
 **** Rust Code
 #+NAME: lib.rs/Substreams Modules/seaport_trades/Rust Code
@@ -1344,11 +1396,36 @@ pub fn seaport_trades(hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
 
 **** Yaml Definition
 #+NAME: lib.rs/Substreams Modules/seaport_trades/Yaml Definition
-#+begin_src yaml :noweb-ref substream-module-yaml-defs
+#+begin_src yaml :noweb-ref substream-module-yaml-defs :tangle no
   - name: seaport_trades
     kind: map
     inputs:
       - map: filter_seaport_trades
+    output:
+      type: proto:soulbound_modules.v1.Hotdogs
+#+end_src
+*** nft_trades
+Combines the [[*seaport_trades]] and [[*blur_trades]] modules into one
+
+**** Rust Code
+#+NAME: lib.rs/Substreams Modules/nft_price/Rust Code
+#+begin_src rust
+#[substreams::handlers::map]
+pub fn nft_trades(blur_trades: Hotdogs, seaport_trades: Hotdogs) -> Result<Hotdogs, SubstreamError> {
+    let mut hotdogs = Vec::from(blur_trades.hotdogs);
+    hotdogs.extend(seaport_trades.hotdogs);
+    Ok(Hotdogs { hotdogs })
+}
+#+end_src
+
+**** Yaml Definition
+#+NAME: lib.rs/Substreams Modules/nft_price/Yaml Definition
+#+begin_src yaml :noweb-ref substream-module-yaml-defs :tangle no
+  - name: nft_trades
+    kind: map
+    inputs:
+      - map: seaport_trades
+      - map: blur_trades
     output:
       type: proto:soulbound_modules.v1.Hotdogs
 #+end_src
@@ -1382,7 +1459,7 @@ pub fn graph_out(hotdogs: Hotdogs) -> Result<EntityChanges, SubstreamError> {
 #+end_src
 **** Yaml Definition
 #+NAME: lib.rs/Substreams Modules/graph_out/Yaml Definition
-#+begin_src yaml :noweb-ref substream-module-yaml-defs
+#+begin_src yaml :noweb-ref substream-module-yaml-defs :tangle no
   - name: graph_out
     kind: map
     inputs:
@@ -1427,7 +1504,7 @@ fn store_ownership_distribution(hotdogs: Hotdogs, s: StoreAddBigInt) {
 #+end_src
 **** Yaml Definition
 #+NAME: lib.rs/Substreams Modules/ownership_distribution/Yaml Definition
-#+begin_src yaml :noweb-ref substream-module-yaml-defs
+#+begin_src yaml :noweb-ref substream-module-yaml-defs :tangle no
   - name: ownership_distribution
     kind: store
     updatePolicy: add
@@ -1467,7 +1544,7 @@ pub fn store_unique_users(hotdogs: Hotdogs, s: StoreSetIfNotExistsBigInt) {
 #+end_src
 ***** Yaml Definition
 #+NAME: lib.rs/Substreams Modules/unique_users/store_unique_users/Yaml Definition
-#+begin_src yaml :noweb-ref substream-module-yaml-defs
+#+begin_src yaml :noweb-ref substream-module-yaml-defs :tangle no
   - name: store_unique_users
     kind: store
     updatePolicy: set_if_not_exists
@@ -1496,7 +1573,7 @@ pub fn count_unique_users(unique_users: Deltas<DeltaBigInt>, s: StoreAddBigInt) 
 #+end_src
 ***** Yaml definition
 #+NAME: lib.rs/Substreams Modules/unique_users/count_unique_users/Yaml definition
-#+begin_src yaml :noweb-ref substream-module-yaml-defs
+#+begin_src yaml :noweb-ref substream-module-yaml-defs :tangle no
   - name: count_unique_users
     kind: store
     updatePolicy: add
@@ -1531,7 +1608,7 @@ pub fn map_unique_users(user_count: StoreGetBigInt) -> Result<Hotdog, SubstreamE
 #+end_src
 ***** Yaml Definition
 #+NAME: lib.rs/Substreams Modules/unique_users/map_unique_users/Yaml Definition
-#+begin_src yaml :noweb-ref substream-module-yaml-defs
+#+begin_src yaml :noweb-ref substream-module-yaml-defs :tangle no
   - name: map_unique_users
     kind: map
     inputs:
@@ -1601,7 +1678,6 @@ pub fn etherscan_overview(param: String, blk: eth::Block) -> Result<Hotdogs, Sub
                     Some(function) => function.name.clone(),
                     None => format_hex(&method_signature),
                 };
-                // TODO add the tx meta stuff
                 output_map.insert(
                     "hotdog_name".to_string(),
                     ValueEnum::StringValue("etherscan_overview".to_string()),
@@ -1609,6 +1685,14 @@ pub fn etherscan_overview(param: String, blk: eth::Block) -> Result<Hotdogs, Sub
                 output_map.insert("from".to_string(), ValueEnum::StringValue(from));
                 output_map.insert("to".to_string(), ValueEnum::StringValue(to));
                 output_map.insert("method".to_string(), ValueEnum::StringValue(signature));
+                add_tx_meta(
+                    &mut output_map,
+                    None,
+                    transaction,
+                    &block_timestamp,
+                    &block_hash,
+                    block_number,
+                );
                 Some(Hotdog::from(output_map))
             } else if let Some(abi) = contract_info.get(&to) {
                 let mut output_map: HashMap<String, ValueEnum> = HashMap::new();
@@ -1623,7 +1707,6 @@ pub fn etherscan_overview(param: String, blk: eth::Block) -> Result<Hotdogs, Sub
                     None => format_hex(&method_signature),
                 };
 
-                // TODO add the tx meta stuff
                 output_map.insert(
                     "hotdog_name".to_string(),
                     ValueEnum::StringValue("etherscan_overview".to_string()),
@@ -1631,6 +1714,14 @@ pub fn etherscan_overview(param: String, blk: eth::Block) -> Result<Hotdogs, Sub
                 output_map.insert("from".to_string(), ValueEnum::StringValue(from));
                 output_map.insert("to".to_string(), ValueEnum::StringValue(to));
                 output_map.insert("method".to_string(), ValueEnum::StringValue(signature));
+                add_tx_meta(
+                    &mut output_map,
+                    None,
+                    transaction,
+                    &block_timestamp,
+                    &block_hash,
+                    block_number,
+                );
                 Some(Hotdog::from(output_map))
             } else {
                 None
@@ -1643,7 +1734,7 @@ pub fn etherscan_overview(param: String, blk: eth::Block) -> Result<Hotdogs, Sub
 #+end_src
 **** Yaml Definition
 #+NAME: lib.rs/Substreams Modules/etherscan_overview/Yaml Definition
-#+begin_src yaml :noweb-ref substream-module-yaml-defs
+#+begin_src yaml :noweb-ref substream-module-yaml-defs :tangle no :tangle no
   - name: etherscan_overview
     kind: map
     inputs:
@@ -1719,7 +1810,7 @@ pub fn gas_guzzlers(blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
 #+end_src
 **** Yaml Definition
 #+NAME: lib.rs/Substreams Modules/gas_guzzlers/Yaml Definition
-#+begin_src yaml :noweb-ref substream-module-yaml-defs
+#+begin_src yaml :noweb-ref substream-module-yaml-defs :tangle no
   - name: gas_guzzlers
     kind: map
     inputs:

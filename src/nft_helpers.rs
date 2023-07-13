@@ -1,4 +1,4 @@
-use crate::ValueEnum;
+use crate::{ValueEnum, helpers::clone_prefix};
 use std::collections::HashMap;
 use substreams::scalar::{BigInt, BigDecimal};
 use std::str::FromStr;
@@ -37,17 +37,12 @@ fn blur_trade_to_nft_price(hotdog: &Hotdog) -> Result<Hotdog, &str> {
 
     let buy = match map.get("buy") {
         Some(buy) => buy.clone(),
-        None => return Err(stringify!("map does not contain a buy field {:?}", hotdog))
+        None => return Err(stringify!("map does not contain a buy field {:?}", hotdog)),
     };
 
     let sell = match map.get("sell") {
         Some(sell) => sell.clone(),
-        None => return Err(stringify!("map does not contain a sell field {:?}", map))
-    };
-
-    let block_number = match map.get("block_number") {
-        Some(block_number) => block_number.clone(),
-        None => return Err(stringify!("map does not contain a block_number field {:?}", map))
+        None => return Err(stringify!("map does not contain a sell field {:?}", map)),
     };
 
     match (buy, sell) {
@@ -56,7 +51,7 @@ fn blur_trade_to_nft_price(hotdog: &Hotdog) -> Result<Hotdog, &str> {
             let price = buy_map.keys.get("price").unwrap().clone();
             let price_string: String = match price.value.clone().unwrap() {
                 ValueEnum::StringValue(price_string) => price_string,
-                _ => return Err("price is not a string")
+                _ => return Err("price is not a string"),
             };
 
             let price_in_eth = wei_to_eth(&price_string);
@@ -73,10 +68,12 @@ fn blur_trade_to_nft_price(hotdog: &Hotdog) -> Result<Hotdog, &str> {
 
             output_map.insert("payment_token".to_string(), payment_token.into());
             output_map.insert("token_id".to_string(), token_id.into());
-            output_map.insert("block_number".to_string(), block_number.into());
+
+            clone_prefix(&map, &mut output_map, &"tx_".to_string());
+
             Ok(Hotdog::from(output_map))
         }
-        _ => Err("buy and sell are not maps")
+        _ => Err("buy and sell are not maps"),
     }
 }
 
@@ -87,11 +84,6 @@ fn seaport_trade_to_nft_price(hotdog: &Hotdog) -> Result<Hotdog, &str> {
     }
 
     let map = hotdog.to_hashmap();
-
-    let block_number = match map.get("block_number") {
-        Some(block_number) => block_number.clone(),
-        None => return Err(stringify!("map does not contain a block_number field {:?}", map))
-    };
 
     let consideration = match map.get("consideration") {
         Some(consideration) => consideration.clone(),
@@ -105,6 +97,7 @@ fn seaport_trade_to_nft_price(hotdog: &Hotdog) -> Result<Hotdog, &str> {
 
     let mut output_map: HashMap<String, ValueEnum> = HashMap::new();
     output_map.insert("hotdog_name".to_string(), ValueEnum::StringValue("NFTPrice".to_string()));
+    clone_prefix(&map, &mut output_map, &"tx_".to_string());
 
     // the whole thang goes like this:
     // user has an nft I want
@@ -235,6 +228,8 @@ fn seaport_trade_to_nft_price(hotdog: &Hotdog) -> Result<Hotdog, &str> {
                 };
             }
             output_map.insert("price".to_string(), ValueEnum::StringValue(nft_value.to_string()));
+
+
             Ok(Hotdog::from(output_map))
         }
         _ => Ok(Hotdog::default())
