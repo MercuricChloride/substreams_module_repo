@@ -11,8 +11,6 @@
       Right now we are only handling trades from seaport if there is a single collection someone is trading for.
       We should probably also add support for many to many swaps
 - [ ] Add EOA support to the [[*etherscan_overview][etherscan_overview]] module
-- [X] Make the [[*nft_price]] module
-- [ ]
 * Notes
 This is a test of literate programming with lsp-mode in emacs
 
@@ -153,7 +151,7 @@ params:
   #filter_blur_trades: "0x5Af0D9827E0c53E4799BB226655A1de152A425a5&&0x5Af0D9827E0c53E4799BB226655A1de152A425a5"
 #+end_src
 ** Modules
-The module yaml config are exported within the module definition located at [[#substream_modules]]
+The module yaml config are exported within the module definition located at [[#substreams_modules]]
 
 #+NAME: Substreams Yaml/Modules
 #+begin_src yaml :noweb yes
@@ -923,6 +921,8 @@ use substreams_ethereum::pb::eth::v2 as eth;
 
 ** Substreams Modules
 :PROPERTIES:
+:CUSTOM_ID: substreams_modules
+:END:
 Functions which represent the modules within the substream
 *** map_events
 This module takes in a param string of the form

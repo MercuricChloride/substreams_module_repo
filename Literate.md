@@ -1,64 +1,66 @@
 
 # Table of Contents
 
-1.  [Tasks <code>[0/5]</code>](#org960cc3f)
-2.  [Notes](#org8026c38)
+1.  [Tasks <code>[1/8]</code>](#orgd19ee6b)
+2.  [Notes](#org3b0236d)
     1.  [Hotdog &ldquo;types&rdquo;](#hotdog_types)
-    2.  [Hardcoded Modules](#org2e7de52)
-        1.  [Why not just do the ABI<sub>GEN</sub> like the substreams example repo has?](#org573cb0e)
-3.  [Protobufs](#org683fc5a)
+    2.  [Hardcoded Modules](#orgb1e3424)
+        1.  [Why not just do the ABI<sub>GEN</sub> like the substreams example repo has?](#org54907b1)
+3.  [Protobufs](#org9d8d8f4)
     1.  [Hotdogs](#Hotdog)
-        1.  [The reason for hotdogs](#orge49ea5a)
-        2.  [Hotdog Code](#orgef3584d)
-    2.  [Hotdog &ldquo;types&rdquo;](#org7e6e14b)
-4.  [Substreams Yaml](#orgbea1075)
-    1.  [Spec version and name](#org2325e34)
-    2.  [Imports](#org33908c7)
-    3.  [Protobuf definitions](#org3e304ce)
-    4.  [Binary export](#org328d707)
-    5.  [Params](#org47b6621)
-    6.  [Modules](#orgafa505f)
+        1.  [The reason for hotdogs](#org56fac43)
+        2.  [Hotdog Code](#orgdbb3c5a)
+    2.  [Hotdog &ldquo;types&rdquo;](#org92688da)
+4.  [Substreams Yaml](#orgc453049)
+    1.  [Spec version and name](#orgbc67c58)
+    2.  [Imports](#org92a93c8)
+    3.  [Protobuf definitions](#org8d23b27)
+    4.  [Binary export](#orge86de3f)
+    5.  [Params](#org1d4c15c)
+    6.  [Modules](#org27198d0)
 5.  [build.rs](#build_script)
-    1.  [Imports](#org7be7c17)
-    2.  [Writing the abi Strings](#org34a95da)
-6.  [helpers.rs](#orgc1d790f)
-    1.  [Imports](#org825080d)
+    1.  [Imports](#org1073f34)
+    2.  [Writing the abi Strings](#orgceac83f)
+6.  [helpers.rs](#orgaf81114)
+    1.  [Imports](#org73aa4e3)
     2.  [Hotdog Helpers](#hotdog_helpers)
-        1.  [Type Conversions](#orgcf9c0b3)
-        2.  [Hotdog helpers trait](#orgf837bec)
-        3.  [Misc Functions](#org3d6a370)
-    3.  [General Helpers](#org1d2c89d)
-        1.  [Format Hex](#org57895ba)
-7.  [nft<sub>helpers.rs</sub>](#org325bb3a)
-    1.  [Imports](#org2b66928)
+        1.  [Type Conversions](#org231c0b5)
+        2.  [Hotdog helpers trait](#org5c0144c)
+        3.  [Misc Functions](#orgb1a22e0)
+    3.  [General Helpers](#org932ccdf)
+        1.  [Format Hex](#org77ae236)
+7.  [nft<sub>helpers.rs</sub>](#orgb586f9d)
+    1.  [Imports](#org04f0ad9)
     2.  [NFT Price &ldquo;type&rdquo;](#nft_price)
-    3.  [Type Conversions](#orgc25716e)
-        1.  [wei<sub>to</sub><sub>eth</sub>](#org895582e)
-        2.  [blur<sub>trade</sub><sub>to</sub><sub>nft</sub><sub>price</sub>](#org18ce11f)
-        3.  [seaport<sub>trade</sub><sub>to</sub><sub>nft</sub><sub>price</sub>](#org16b677a)
-8.  [lib.rs](#org395a814)
-    1.  [Imports and module declarations](#org90e56f5)
-    2.  [Substreams Modules](#substream_modules)
-        1.  [map<sub>events</sub>](#org1669c7c)
-        2.  [filter<sub>events</sub>](#org90e6608)
-        3.  [all<sub>blur</sub><sub>trades</sub>](#orgba6610d)
+    3.  [Type Conversions](#orgd2b6a59)
+        1.  [wei<sub>to</sub><sub>eth</sub>](#orgaed4003)
+        2.  [blur<sub>trade</sub><sub>to</sub><sub>nft</sub><sub>price</sub>](#org4a1aba7)
+        3.  [seaport<sub>trade</sub><sub>to</sub><sub>nft</sub><sub>price</sub>](#org3b5eaa4)
+8.  [lib.rs](#org9a73f32)
+    1.  [Imports and module declarations](#org5982c8a)
+    2.  [Substreams Modules](#substreams_modules)
+        1.  [map<sub>events</sub>](#orgaad37df)
+        2.  [filter<sub>events</sub>](#org4ae4fb7)
+        3.  [all<sub>blur</sub><sub>trades</sub>](#orgeaaac48)
         4.  [filter<sub>blur</sub><sub>trades</sub>](#filter_blur_trades)
-        5.  [blur<sub>trades</sub>](#orga4fd555)
-        6.  [all<sub>seaport</sub><sub>trades</sub>](#orgde870f3)
+        5.  [blur<sub>trades</sub>](#org3c9ec0d)
+        6.  [all<sub>seaport</sub><sub>trades</sub>](#org010f40c)
         7.  [filter<sub>seaport</sub><sub>trades</sub>](#filter_blur_trades)
         8.  [seaport<sub>trades</sub>](#seaport_trades)
-        9.  [graph<sub>out</sub>](#graph_out)
-        10. [ownership<sub>distribution</sub>](#orga893e54)
-        11. [unique<sub>users</sub>](#orgd322e1a)
-        12. [etherscan<sub>overview</sub>](#orgf7af621)
-        13. [gas<sub>guzzlers</sub>](#org635b9e0)
+        9.  [nft<sub>trades</sub>](#orga5e69b3)
+        10. [graph<sub>out</sub>](#graph_out)
+        11. [ownership<sub>distribution</sub>](#orgec5af21)
+        12. [unique<sub>users</sub>](#org3effaea)
+        13. [etherscan<sub>overview</sub>](#org62ad78d)
+        14. [gas<sub>guzzlers</sub>](#org5315feb)
 
 
 
-<a id="org960cc3f"></a>
+<a id="orgd19ee6b"></a>
 
-# Tasks <code>[0/5]</code>
+# Tasks <code>[1/8]</code>
 
+-   [ ] Add correct type conversion for things like token id etc.
 -   [ ] Add the superrare nft trade module
 -   [ ] Figure out why the filter<sub>blur</sub><sub>trades</sub> module doesn&rsquo;t work with 1 input address
 -   [ ] Add some new modules for DAOs
@@ -66,10 +68,10 @@
 -   [ ] Make a plan on how to handle multi for multi trades with the seaport contracts
     Right now we are only handling trades from seaport if there is a single collection someone is trading for.
     We should probably also add support for many to many swaps
--   [ ] Add EOA support to the [etherscan<sub>overview</sub>](#orgf7af621) module
+-   [ ] Add EOA support to the [etherscan<sub>overview</sub>](#org62ad78d) module
 
 
-<a id="org8026c38"></a>
+<a id="org3b0236d"></a>
 
 # Notes
 
@@ -96,7 +98,7 @@ If we instead have a hotdog that has keys already there for the price data, IE c
 It might make sense to just build these out as standalone protobufs, but for now I think it&rsquo;s fine as a hotdog.
 
 
-<a id="org2e7de52"></a>
+<a id="orgb1e3424"></a>
 
 ## Hardcoded Modules
 
@@ -109,7 +111,7 @@ To do this, within the [build script](#build_script), I will need to run some ki
 I kind of like the exported static constant approach the most. Then decode them at runtime.
 
 
-<a id="org573cb0e"></a>
+<a id="org54907b1"></a>
 
 ### Why not just do the ABI<sub>GEN</sub> like the substreams example repo has?
 
@@ -118,7 +120,7 @@ The reason for this is because the binding generation they showed, does not supp
 So it wont&rsquo; work for now, but maybe soon!
 
 
-<a id="org683fc5a"></a>
+<a id="org9d8d8f4"></a>
 
 # Protobufs
 
@@ -132,7 +134,7 @@ Hotdogs are a core part of how this whole module system works.
 Helpers for working with hotdogs can be found [here](#hotdog_helpers)
 
 
-<a id="orge49ea5a"></a>
+<a id="org56fac43"></a>
 
 ### The reason for hotdogs
 
@@ -145,7 +147,7 @@ So we needed a way for a module to output a dynamic type.
 The name comes from the fact, you don&rsquo;t really know what is inside of a hotdog. But you can consume them all the same. Much like the data coming from these more dynamic modules!
 
 
-<a id="orgef3584d"></a>
+<a id="orgdbb3c5a"></a>
 
 ### Hotdog Code
 
@@ -175,7 +177,7 @@ The name comes from the fact, you don&rsquo;t really know what is inside of a ho
     }
 
 
-<a id="org7e6e14b"></a>
+<a id="org92688da"></a>
 
 ## Hotdog &ldquo;types&rdquo;
 
@@ -186,12 +188,12 @@ But I have this idea of &ldquo;hotdog types&rdquo;, where we have some unit stru
 The first example of this is the [Nft Price](#nft_price) type
 
 
-<a id="orgbea1075"></a>
+<a id="orgc453049"></a>
 
 # Substreams Yaml
 
 
-<a id="org2325e34"></a>
+<a id="orgbc67c58"></a>
 
 ## Spec version and name
 
@@ -201,7 +203,7 @@ The first example of this is the [Nft Price](#nft_price) type
       version: v0.1.0
 
 
-<a id="org33908c7"></a>
+<a id="org92a93c8"></a>
 
 ## Imports
 
@@ -210,7 +212,7 @@ The first example of this is the [Nft Price](#nft_price) type
       database_change: https://github.com/streamingfast/substreams-database-change/releases/download/v1.0.0/substreams-database-change-v1.0.0.spkg
 
 
-<a id="org3e304ce"></a>
+<a id="org8d23b27"></a>
 
 ## Protobuf definitions
 
@@ -221,7 +223,7 @@ The first example of this is the [Nft Price](#nft_price) type
         - ./proto
 
 
-<a id="org328d707"></a>
+<a id="orge86de3f"></a>
 
 ## Binary export
 
@@ -231,7 +233,7 @@ The first example of this is the [Nft Price](#nft_price) type
         file: ./target/wasm32-unknown-unknown/release/soulbound_modules.wasm
 
 
-<a id="org47b6621"></a>
+<a id="org1d4c15c"></a>
 
 ## Params
 
@@ -243,11 +245,11 @@ The first example of this is the [Nft Price](#nft_price) type
       #filter_blur_trades: "0x5Af0D9827E0c53E4799BB226655A1de152A425a5&&0x5Af0D9827E0c53E4799BB226655A1de152A425a5"
 
 
-<a id="orgafa505f"></a>
+<a id="org27198d0"></a>
 
 ## Modules
 
-The module yaml config are exported within the module definition located at [8.2](#substream_modules)
+The module yaml config are exported within the module definition located at [8.2](#substreams_modules)
 
     modules:
         - name: map_events
@@ -301,6 +303,13 @@ The module yaml config are exported within the module definition located at [8.2
           kind: map
           inputs:
             - map: filter_seaport_trades
+          output:
+            type: proto:soulbound_modules.v1.Hotdogs
+        - name: nft_trades
+          kind: map
+          inputs:
+            - map: seaport_trades
+            - map: blur_trades
           output:
             type: proto:soulbound_modules.v1.Hotdogs
         - name: graph_out
@@ -361,7 +370,7 @@ The module yaml config are exported within the module definition located at [8.2
     }
 
 
-<a id="org7be7c17"></a>
+<a id="org1073f34"></a>
 
 ## Imports
 
@@ -370,11 +379,11 @@ The module yaml config are exported within the module definition located at [8.2
     use std::path::Path;
 
 
-<a id="org34a95da"></a>
+<a id="orgceac83f"></a>
 
 ## Writing the abi Strings
 
-So we need to read each ABI, and write it to some constant file, and import it within the [lib.rs](#org395a814) file.
+So we need to read each ABI, and write it to some constant file, and import it within the [lib.rs](#org9a73f32) file.
 
     // for each file within the abis/ dir, we need to write it as a constant string within src/abi_constants.rs file
     let path = Path::new("./abis");
@@ -390,25 +399,26 @@ So we need to read each ABI, and write it to some constant file, and import it w
     fs::write("./src/abi_constants.rs", abi_constants).unwrap();
 
 
-<a id="orgc1d790f"></a>
+<a id="orgaf81114"></a>
 
 # helpers.rs
 
 A collection of helper functions to make life easier
 
 
-<a id="org825080d"></a>
+<a id="org73aa4e3"></a>
 
 ## Imports
 
-    use std::str::FromStr;
-    use std::{collections::HashMap, ops::Mul, str::from_utf8};
     use ethereum_abi::Value;
     use fancy_regex::Regex;
+    use std::str::FromStr;
+    use std::{collections::HashMap, ops::Mul, str::from_utf8};
     use substreams_entity_change::tables::Tables;
+    use substreams_ethereum::pb::eth::v2::TransactionTrace;
     
-    use crate::pb::soulbound_modules::v1::{Hotdog, Hotdogs, Map};
     use crate::pb::soulbound_modules::v1::{value::Value as ValueEnum, Value as ValueStruct};
+    use crate::pb::soulbound_modules::v1::{Hotdog, Hotdogs, Map};
     use sha3::{self, Digest};
     use substreams::log::println;
     use substreams::{scalar::BigInt, Hex};
@@ -427,7 +437,7 @@ In general the best practice involves, converting a hotdog into a hashmap, worki
 Also with values, the syntax can be gnarly, but most values impliment a .into() method for converting some value into a &ldquo;ValueEnum&rdquo; of the appropriate value.
 
 
-<a id="orgcf9c0b3"></a>
+<a id="org231c0b5"></a>
 
 ### Type Conversions
 
@@ -435,14 +445,16 @@ Also with values, the syntax can be gnarly, but most values impliment a .into() 
 
         impl From<Hotdog> for HashMap<String, ValueEnum> {
             fn from(hotdog: Hotdog) -> Self {
-                let mut map:HashMap<String, ValueEnum> = HashMap::new();
-        
+                let mut map: HashMap<String, ValueEnum> = HashMap::new();
         
                 for (key, value) in hotdog.map.as_ref().unwrap().keys.iter() {
                     map.insert(key.to_string(), value.value.clone().unwrap());
                 }
         
-                map.insert("hotdog_name".to_string(), ValueEnum::StringValue(hotdog.hotdog_name.clone()));
+                map.insert(
+                    "hotdog_name".to_string(),
+                    ValueEnum::StringValue(hotdog.hotdog_name.clone()),
+                );
         
                 map
             }
@@ -454,20 +466,29 @@ Also with values, the syntax can be gnarly, but most values impliment a .into() 
             fn from(map: HashMap<String, ValueEnum>) -> Self {
                 let mut new_map: HashMap<String, ValueStruct> = HashMap::new();
         
-                let hotdog_name = if let ValueEnum::StringValue(name) = map.get("hotdog_name").unwrap().clone() {
-                    name
-                } else {
-                    panic!("No hotdog_name in hashmap");
-                };
+                let hotdog_name =
+                    if let ValueEnum::StringValue(name) = map.get("hotdog_name").unwrap().clone() {
+                        name
+                    } else {
+                        panic!("No hotdog_name in hashmap");
+                    };
         
                 for (key, value) in map {
                     if key == "hotdog_name" {
                         continue;
                     }
-                    new_map.insert(key.clone(), ValueStruct{ value: Some(value.clone()) });
+                    new_map.insert(
+                        key.clone(),
+                        ValueStruct {
+                            value: Some(value.clone()),
+                        },
+                    );
                 }
         
-                Hotdog { hotdog_name, map: Some(Map {keys: new_map} )}
+                Hotdog {
+                    hotdog_name,
+                    map: Some(Map { keys: new_map }),
+                }
             }
         }
 
@@ -484,17 +505,36 @@ Also with values, the syntax can be gnarly, but most values impliment a .into() 
         ) -> Option<Hotdog> {
             let mut map = HashMap::new();
         
-            let topics = &log.topics().iter().map(|topic| {
-                primitive_types::H256::from_slice(&topic[..])
-            }).collect::<Vec<_>>();
+            let topics = &log
+                .topics()
+                .iter()
+                .map(|topic| primitive_types::H256::from_slice(&topic[..]))
+                .collect::<Vec<_>>();
         
-            add_tx_meta(&mut map, log, block_timestamp, block_hash, block_number);
+            add_tx_meta(
+                &mut map,
+                Some(log),
+                log.receipt.transaction,
+                block_timestamp,
+                block_hash,
+                block_number,
+            );
         
-            if let Ok((event, params)) = &abi.decode_log_from_slice(&topics[..] , log.data()) {
+            if let Ok((event, params)) = &abi.decode_log_from_slice(&topics[..], log.data()) {
                 let decoded_params = params;
                 let mut map: HashMap<String, ValueEnum> = HashMap::new();
-                map.insert("hotdog_name".to_string(), ValueEnum::StringValue(event.name.clone()));
-                add_tx_meta(&mut map, &log, &block_timestamp, &block_hash, block_number);
+                map.insert(
+                    "hotdog_name".to_string(),
+                    ValueEnum::StringValue(event.name.clone()),
+                );
+                add_tx_meta(
+                    &mut map,
+                    Some(log),
+                    log.receipt.transaction,
+                    block_timestamp,
+                    block_hash,
+                    block_number,
+                );
         
                 for kv in decoded_params.iter() {
                     let param = &kv.param;
@@ -516,7 +556,7 @@ Also with values, the syntax can be gnarly, but most values impliment a .into() 
             fn into(self) -> ValueEnum {
                 match self.value {
                     Some(value) => value,
-                    None => panic!("value must be present")
+                    None => panic!("value must be present"),
                 }
             }
         }
@@ -527,14 +567,15 @@ Also with values, the syntax can be gnarly, but most values impliment a .into() 
     
         impl Into<HashMap<String, ValueEnum>> for Map {
             fn into(self) -> HashMap<String, ValueEnum> {
-                self.keys.into_iter().map(|(key, value)| {
-                    (key, value.into())
-                }).collect()
+                self.keys
+                    .into_iter()
+                    .map(|(key, value)| (key, value.into()))
+                    .collect()
             }
         }
 
 
-<a id="orgf837bec"></a>
+<a id="org5c0144c"></a>
 
 ### Hotdog helpers trait
 
@@ -558,7 +599,7 @@ Some similar type conversion helpers are present in this trait
     }
 
 
-<a id="org3d6a370"></a>
+<a id="orgb1a22e0"></a>
 
 ### Misc Functions
 
@@ -572,37 +613,41 @@ Just some more miscellaneous functions
     
         pub fn add_tx_meta(
             map: &mut HashMap<String, ValueEnum>,
-            log: &LogView,
+            log: Option<&LogView>,
+            transaction: &TransactionTrace,
             block_timestamp: &String,
             block_hash: &String,
             block_number: u64,
         ) {
-            map.insert(
-                "tx_log_index".to_string(),
-                ValueEnum::StringValue(log.index().to_string()),
-            );
+            if let Some(log) = log {
+                map.insert(
+                    "tx_log_index".to_string(),
+                    ValueEnum::Uint64Value(log.index() as u64),
+                );
+            }
+        
             map.insert(
                 "tx_hash".to_string(),
-                ValueEnum::StringValue(format_hex(&log.receipt.transaction.hash)),
+                ValueEnum::StringValue(format_hex(&transaction.hash)),
             );
             map.insert(
                 "tx_index".to_string(),
-                ValueEnum::StringValue(log.receipt.transaction.index.to_string()),
+                ValueEnum::Uint64Value(transaction.index as u64),
             );
             map.insert(
                 "tx_from".to_string(),
-                ValueEnum::StringValue(format_hex(&log.receipt.transaction.from)),
+                ValueEnum::StringValue(format_hex(&transaction.from)),
             );
             map.insert(
                 "tx_to".to_string(),
-                ValueEnum::StringValue(format_hex(&log.receipt.transaction.to)),
+                ValueEnum::StringValue(format_hex(&transaction.to)),
             );
-            let gas_used = log.receipt.transaction.gas_used;
+            let gas_used = transaction.gas_used;
             map.insert(
                 "tx_gas_used".to_string(),
                 ValueEnum::StringValue(gas_used.to_string()),
             );
-            if let Some(gas_price) = &log.receipt.transaction.gas_price {
+            if let Some(gas_price) = &transaction.gas_price {
                 let gas_price = BigInt::from_unsigned_bytes_be(&gas_price.bytes);
                 map.insert(
                     "tx_gas_price".to_string(),
@@ -613,22 +658,41 @@ Just some more miscellaneous functions
                     ValueEnum::StringValue(gas_price.mul(gas_used).to_string()),
                 );
             }
-            map.insert("block_number".to_string(), ValueEnum::Uint64Value(block_number));
             map.insert(
-                "block_hash".to_string(),
+                "tx_block_number".to_string(),
+                ValueEnum::Uint64Value(block_number),
+            );
+            map.insert(
+                "tx_block_hash".to_string(),
                 ValueEnum::StringValue(block_hash.clone()),
             );
             map.insert(
-                "block_timestamp".to_string(),
-                ValueEnum::StringValue(block_timestamp.clone()),
+                "tx_block_timestamp".to_string(),
+                ValueEnum::Uint64Value(block_timestamp.parse::<u64>().unwrap()),
             );
         }
 
-2.  Update Tables Trait and Impl
+2.  clone<sub>prefix</sub>
+
+    This function clones all values from the source<sub>map</sub> that start with a prefix string, to the output hashmap.
+    
+        pub fn clone_prefix(
+            source_map: &HashMap<String, ValueEnum>,
+            output_map: &mut HashMap<String, ValueEnum>,
+            prefix: &String,
+        ) {
+            for (key, value) in source_map.iter() {
+                if key.starts_with(prefix) {
+                    output_map.insert(key.clone(), value.clone());
+                }
+            }
+        }
+
+3.  Update Tables Trait and Impl
 
     The update tables trait is used to give the hotdog the ability to update postgres tables.
     
-    This is used within the [8.2.9](#graph_out) module
+    This is used within the [8.2.10](#graph_out) module
     
         pub trait UpdateTables {
             fn create_id(&self) -> String;
@@ -646,7 +710,7 @@ Just some more miscellaneous functions
                     (ValueEnum::StringValue(tx_hash), ValueEnum::StringValue(tx_log_index)) => {
                         format!("{}-{}", tx_hash, tx_log_index)
                     }
-                    _ => panic!("tx_hash and tx_log_index must be strings")
+                    _ => panic!("tx_hash and tx_log_index must be strings"),
                 }
             }
         
@@ -674,7 +738,7 @@ Just some more miscellaneous functions
             }
         }
 
-3.  param<sub>value</sub><sub>to</sub><sub>value</sub><sub>enum</sub>
+4.  param<sub>value</sub><sub>to</sub><sub>value</sub><sub>enum</sub>
 
     This function converts a ethereum<sub>abi</sub>::Value into a value enum for use in a hotdog.
     
@@ -684,18 +748,21 @@ Just some more miscellaneous functions
             match value {
                 Value::Uint(uint, _) => ValueEnum::StringValue(uint.to_string()),
                 Value::Int(int, _) => ValueEnum::StringValue(int.to_string()),
-                Value::Address(address) => ValueEnum::StringValue(format!("{:?}",address)),
+                Value::Address(address) => ValueEnum::StringValue(format!("{:?}", address)),
                 Value::Bool(boolean) => ValueEnum::StringValue(boolean.to_string()),
                 Value::FixedBytes(bytes) => ValueEnum::StringValue(format_hex(&bytes)),
                 Value::FixedArray(array, _) => {
                     let mut map = HashMap::new();
                     for i in 0..array.len() {
                         let value = &array[i];
-                        map.insert(i.to_string(), ValueStruct { value: Some(param_value_to_value_enum(&value))});
+                        map.insert(
+                            i.to_string(),
+                            ValueStruct {
+                                value: Some(param_value_to_value_enum(&value)),
+                            },
+                        );
                     }
-                    ValueEnum::MapValue(
-                        Map { keys: map }
-                    )
+                    ValueEnum::MapValue(Map { keys: map })
                 }
                 Value::String(string) => ValueEnum::StringValue(string.to_string()),
                 Value::Bytes(bytes) => ValueEnum::StringValue(format_hex(&bytes)),
@@ -703,49 +770,55 @@ Just some more miscellaneous functions
                     let mut map = HashMap::new();
                     for i in 0..array.len() {
                         let value = &array[i];
-                        map.insert(i.to_string(), ValueStruct { value: Some(param_value_to_value_enum(&value))});
+                        map.insert(
+                            i.to_string(),
+                            ValueStruct {
+                                value: Some(param_value_to_value_enum(&value)),
+                            },
+                        );
                     }
-                    ValueEnum::MapValue(
-                        Map { keys: map }
-                    )
+                    ValueEnum::MapValue(Map { keys: map })
                 }
                 Value::Tuple(tuple_arr) => {
                     let mut map = HashMap::new();
                     for (name, value) in tuple_arr.iter() {
-                        map.insert(name.to_string(), ValueStruct { value: Some(param_value_to_value_enum(&value))});
+                        map.insert(
+                            name.to_string(),
+                            ValueStruct {
+                                value: Some(param_value_to_value_enum(&value)),
+                            },
+                        );
                     }
-                    ValueEnum::MapValue(
-                        Map { keys: map }
-                    )
+                    ValueEnum::MapValue(Map { keys: map })
                 }
             }
         }
 
 
-<a id="org1d2c89d"></a>
+<a id="org932ccdf"></a>
 
 ## General Helpers
 
 
-<a id="org57895ba"></a>
+<a id="org77ae236"></a>
 
 ### Format Hex
 
     pub fn format_hex(hex: &[u8]) -> String {
-      format!("0x{}", Hex(hex).to_string())
+        format!("0x{}", Hex(hex).to_string())
     }
 
 
-<a id="org325bb3a"></a>
+<a id="orgb586f9d"></a>
 
 # nft<sub>helpers.rs</sub>
 
 
-<a id="org2b66928"></a>
+<a id="org04f0ad9"></a>
 
 ## Imports
 
-    use crate::ValueEnum;
+    use crate::{ValueEnum, helpers::clone_prefix};
     use std::collections::HashMap;
     use substreams::scalar::{BigInt, BigDecimal};
     use std::str::FromStr;
@@ -782,12 +855,12 @@ The way we are going to impliment any sort of &ldquo;types&rdquo; for hotdogs ar
     }
 
 
-<a id="orgc25716e"></a>
+<a id="orgd2b6a59"></a>
 
 ## Type Conversions
 
 
-<a id="org895582e"></a>
+<a id="orgaed4003"></a>
 
 ### wei<sub>to</sub><sub>eth</sub>
 
@@ -796,7 +869,7 @@ The way we are going to impliment any sort of &ldquo;types&rdquo; for hotdogs ar
     }
 
 
-<a id="org18ce11f"></a>
+<a id="org4a1aba7"></a>
 
 ### blur<sub>trade</sub><sub>to</sub><sub>nft</sub><sub>price</sub>
 
@@ -813,17 +886,12 @@ Converts a blur &ldquo;OrdersMatched&rdquo; event into an [7.2](#nft_price) hotd
     
         let buy = match map.get("buy") {
             Some(buy) => buy.clone(),
-            None => return Err(stringify!("map does not contain a buy field {:?}", hotdog))
+            None => return Err(stringify!("map does not contain a buy field {:?}", hotdog)),
         };
     
         let sell = match map.get("sell") {
             Some(sell) => sell.clone(),
-            None => return Err(stringify!("map does not contain a sell field {:?}", map))
-        };
-    
-        let block_number = match map.get("block_number") {
-            Some(block_number) => block_number.clone(),
-            None => return Err(stringify!("map does not contain a block_number field {:?}", map))
+            None => return Err(stringify!("map does not contain a sell field {:?}", map)),
         };
     
         match (buy, sell) {
@@ -832,7 +900,7 @@ Converts a blur &ldquo;OrdersMatched&rdquo; event into an [7.2](#nft_price) hotd
                 let price = buy_map.keys.get("price").unwrap().clone();
                 let price_string: String = match price.value.clone().unwrap() {
                     ValueEnum::StringValue(price_string) => price_string,
-                    _ => return Err("price is not a string")
+                    _ => return Err("price is not a string"),
                 };
     
                 let price_in_eth = wei_to_eth(&price_string);
@@ -849,15 +917,17 @@ Converts a blur &ldquo;OrdersMatched&rdquo; event into an [7.2](#nft_price) hotd
     
                 output_map.insert("payment_token".to_string(), payment_token.into());
                 output_map.insert("token_id".to_string(), token_id.into());
-                output_map.insert("block_number".to_string(), block_number.into());
+    
+                clone_prefix(&map, &mut output_map, &"tx_".to_string());
+    
                 Ok(Hotdog::from(output_map))
             }
-            _ => Err("buy and sell are not maps")
+            _ => Err("buy and sell are not maps"),
         }
     }
 
 
-<a id="org16b677a"></a>
+<a id="org3b5eaa4"></a>
 
 ### seaport<sub>trade</sub><sub>to</sub><sub>nft</sub><sub>price</sub>
 
@@ -871,11 +941,6 @@ Converts a seaport trade into an [7.2](#nft_price) hotdog
     
         let map = hotdog.to_hashmap();
     
-        let block_number = match map.get("block_number") {
-            Some(block_number) => block_number.clone(),
-            None => return Err(stringify!("map does not contain a block_number field {:?}", map))
-        };
-    
         let consideration = match map.get("consideration") {
             Some(consideration) => consideration.clone(),
             None => panic!("map does not contain a consideration field {:?}", hotdog)
@@ -888,6 +953,7 @@ Converts a seaport trade into an [7.2](#nft_price) hotdog
     
         let mut output_map: HashMap<String, ValueEnum> = HashMap::new();
         output_map.insert("hotdog_name".to_string(), ValueEnum::StringValue("NFTPrice".to_string()));
+        clone_prefix(&map, &mut output_map, &"tx_".to_string());
     
         // the whole thang goes like this:
         // user has an nft I want
@@ -1018,6 +1084,8 @@ Converts a seaport trade into an [7.2](#nft_price) hotdog
                     };
                 }
                 output_map.insert("price".to_string(), ValueEnum::StringValue(nft_value.to_string()));
+    
+    
                 Ok(Hotdog::from(output_map))
             }
             _ => Ok(Hotdog::default())
@@ -1025,18 +1093,14 @@ Converts a seaport trade into an [7.2](#nft_price) hotdog
     }
 
 
-<a id="org395a814"></a>
+<a id="org9a73f32"></a>
 
 # lib.rs
 
 The general file structure is as such:
 
-    <<lib.rs-imports-and-modules>>
-    
-    <<substream-modules>>
 
-
-<a id="org90e56f5"></a>
+<a id="org5982c8a"></a>
 
 ## Imports and module declarations
 
@@ -1045,14 +1109,8 @@ The general file structure is as such:
     pub mod nft_helpers;
     mod pb;
 
-    // [[file:Literate.org::lib.rs/Rust Modules][lib.rs/Rust Modules]]
-    mod abi_constants;
-    pub mod helpers;
-    pub mod nft_helpers;
-    mod pb;
-    // lib.rs/Rust Modules ends here
     use ethereum_abi::Abi;
-    use helpers::{format_hex, log_to_hotdog, HotdogHelpers, UpdateTables};
+    use helpers::{add_tx_meta, format_hex, log_to_hotdog, HotdogHelpers, UpdateTables};
     use nft_helpers::NftPrice;
     use pb::soulbound_modules::v1::{value::Value as ValueEnum, Hotdog, Hotdogs, Value as ValueStruct};
     use std::collections::HashMap;
@@ -1071,14 +1129,14 @@ The general file structure is as such:
     use substreams_ethereum::pb::eth::v2 as eth;
 
 
-<a id="substream_modules"></a>
+<a id="substreams_modules"></a>
 
 ## Substreams Modules
 
 Functions which represent the modules within the substream
 
 
-<a id="org1669c7c"></a>
+<a id="orgaad37df"></a>
 
 ### map<sub>events</sub>
 
@@ -1155,7 +1213,7 @@ The output of this module will be a [Hotdog](#Hotdog)
             type: proto:soulbound_modules.v1.Hotdogs
 
 
-<a id="org90e6608"></a>
+<a id="org4ae4fb7"></a>
 
 ### filter<sub>events</sub>
 
@@ -1198,13 +1256,13 @@ IE: &ldquo;Transfer&&Approval&rdquo;
             type: proto:soulbound_modules.v1.Hotdogs
 
 
-<a id="orgba6610d"></a>
+<a id="orgeaaac48"></a>
 
 ### all<sub>blur</sub><sub>trades</sub>
 
 This module is the hardcoded source of all blur trades. It will replace the map<sub>events</sub> input for [filter<sub>blur</sub><sub>trades</sub>](#filter_blur_trades)
 
-It is super similar to [map<sub>events</sub>](#org1669c7c) in how it operates, just hardcoded is all :)
+It is super similar to [map<sub>events</sub>](#orgaad37df) in how it operates, just hardcoded is all :)
 
 1.  Rust Code
 
@@ -1342,7 +1400,7 @@ If you just want all trades from blur, just pass in an empty string.
             type: proto:soulbound_modules.v1.Hotdogs
 
 
-<a id="orga4fd555"></a>
+<a id="org3c9ec0d"></a>
 
 ### blur<sub>trades</sub>
 
@@ -1374,13 +1432,13 @@ This module takes in filter<sub>blur</sub><sub>trades</sub> as an input, and con
             type: proto:soulbound_modules.v1.Hotdogs
 
 
-<a id="orgde870f3"></a>
+<a id="org010f40c"></a>
 
 ### all<sub>seaport</sub><sub>trades</sub>
 
 This module is the hardcoded source of all blur trades. It will replace the map<sub>events</sub> input for [filter<sub>blur</sub><sub>trades</sub>](#filter_blur_trades)
 
-It is super similar to [map<sub>events</sub>](#org1669c7c) in how it operates, just hardcoded is all :)
+It is super similar to [map<sub>events</sub>](#orgaad37df) in how it operates, just hardcoded is all :)
 
 1.  Rust Code
 
@@ -1560,6 +1618,32 @@ Not done yet! But when it is, it will convert a seaport trade into a [nft price]
             type: proto:soulbound_modules.v1.Hotdogs
 
 
+<a id="orga5e69b3"></a>
+
+### nft<sub>trades</sub>
+
+Combines the [8.2.8](#seaport_trades) and [8.2.5](#org3c9ec0d) modules into one
+
+1.  Rust Code
+
+        #[substreams::handlers::map]
+        pub fn nft_trades(blur_trades: Hotdogs, seaport_trades: Hotdogs) -> Result<Hotdogs, SubstreamError> {
+            let mut hotdogs = Vec::from(blur_trades.hotdogs);
+            hotdogs.extend(seaport_trades.hotdogs);
+            Ok(Hotdogs { hotdogs })
+        }
+
+2.  Yaml Definition
+
+        - name: nft_trades
+          kind: map
+          inputs:
+            - map: seaport_trades
+            - map: blur_trades
+          output:
+            type: proto:soulbound_modules.v1.Hotdogs
+
+
 <a id="graph_out"></a>
 
 ### graph<sub>out</sub>
@@ -1595,7 +1679,7 @@ The module takes in input of map<sub>events</sub> by default, but works with any
             type: proto:substreams.entity.v1.EntityChanges
 
 
-<a id="orga893e54"></a>
+<a id="orgec5af21"></a>
 
 ### ownership<sub>distribution</sub>
 
@@ -1643,7 +1727,7 @@ It&rsquo;s input should be a map<sub>events</sub>
             - map: map_events
 
 
-<a id="orgd322e1a"></a>
+<a id="org3effaea"></a>
 
 ### unique<sub>users</sub>
 
@@ -1747,7 +1831,7 @@ This needs a few modules in order to display nicely however.
                 type: proto:soulbound_modules.v1.Hotdog
 
 
-<a id="orgf7af621"></a>
+<a id="org62ad78d"></a>
 
 ### etherscan<sub>overview</sub>
 
@@ -1755,7 +1839,7 @@ This idea here is to build a module which mimics what you see on the etherscan o
 
 This module will also include support for general EOA&rsquo;s, however for now I want to build for what people will mainly use.
 
-This module takes in an input identical to [map<sub>events</sub>](#org1669c7c), the form of &ldquo;ADDRESS&&ABI&rdquo;
+This module takes in an input identical to [map<sub>events</sub>](#orgaad37df), the form of &ldquo;ADDRESS&&ABI&rdquo;
 
 1.  Rust Code
 
@@ -1810,7 +1894,6 @@ This module takes in an input identical to [map<sub>events</sub>](#org1669c7c), 
                             Some(function) => function.name.clone(),
                             None => format_hex(&method_signature),
                         };
-                        // TODO add the tx meta stuff
                         output_map.insert(
                             "hotdog_name".to_string(),
                             ValueEnum::StringValue("etherscan_overview".to_string()),
@@ -1818,6 +1901,14 @@ This module takes in an input identical to [map<sub>events</sub>](#org1669c7c), 
                         output_map.insert("from".to_string(), ValueEnum::StringValue(from));
                         output_map.insert("to".to_string(), ValueEnum::StringValue(to));
                         output_map.insert("method".to_string(), ValueEnum::StringValue(signature));
+                        add_tx_meta(
+                            &mut output_map,
+                            None,
+                            transaction,
+                            &block_timestamp,
+                            &block_hash,
+                            block_number,
+                        );
                         Some(Hotdog::from(output_map))
                     } else if let Some(abi) = contract_info.get(&to) {
                         let mut output_map: HashMap<String, ValueEnum> = HashMap::new();
@@ -1832,7 +1923,6 @@ This module takes in an input identical to [map<sub>events</sub>](#org1669c7c), 
                             None => format_hex(&method_signature),
                         };
         
-                        // TODO add the tx meta stuff
                         output_map.insert(
                             "hotdog_name".to_string(),
                             ValueEnum::StringValue("etherscan_overview".to_string()),
@@ -1840,6 +1930,14 @@ This module takes in an input identical to [map<sub>events</sub>](#org1669c7c), 
                         output_map.insert("from".to_string(), ValueEnum::StringValue(from));
                         output_map.insert("to".to_string(), ValueEnum::StringValue(to));
                         output_map.insert("method".to_string(), ValueEnum::StringValue(signature));
+                        add_tx_meta(
+                            &mut output_map,
+                            None,
+                            transaction,
+                            &block_timestamp,
+                            &block_hash,
+                            block_number,
+                        );
                         Some(Hotdog::from(output_map))
                     } else {
                         None
@@ -1861,7 +1959,7 @@ This module takes in an input identical to [map<sub>events</sub>](#org1669c7c), 
             type: proto:soulbound_modules.v1.Hotdogs
 
 
-<a id="org635b9e0"></a>
+<a id="org5315feb"></a>
 
 ### gas<sub>guzzlers</sub>
 
