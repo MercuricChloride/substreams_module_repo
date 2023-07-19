@@ -18,7 +18,7 @@ use substreams::{
     store::{DeltaBigInt, Deltas, StoreNew, StoreSetIfNotExists, StoreSetIfNotExistsBigInt},
 };
 use substreams::{
-    log::println,
+    log::println as log_print,
     pb::substreams::store_delta::Operation,
     store::{StoreAdd, StoreAddBigInt, StoreGet, StoreGetBigInt},
 };
@@ -34,7 +34,7 @@ pub fn map_events(param: String, blk: eth::Block) -> Result<Hotdogs, SubstreamEr
 
     if split.len() % 2 != 0 {
         for item in split {
-            println(format!("item {:?}\n\n\n", item));
+            //println(format!("item {:?}\n\n\n", item));
         }
 
         panic!("Every address needs an ABI");
@@ -354,7 +354,10 @@ pub fn seaport_trades(hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
 
 // [[file:../Literate.org::lib.rs/Substreams Modules/nft_price/Rust Code][lib.rs/Substreams Modules/nft_price/Rust Code]]
 #[substreams::handlers::map]
-pub fn nft_trades(blur_trades: Hotdogs, seaport_trades: Hotdogs) -> Result<Hotdogs, SubstreamError> {
+pub fn nft_trades(
+    blur_trades: Hotdogs,
+    seaport_trades: Hotdogs,
+) -> Result<Hotdogs, SubstreamError> {
     let mut hotdogs = Vec::from(blur_trades.hotdogs);
     hotdogs.extend(seaport_trades.hotdogs);
     Ok(Hotdogs { hotdogs })
@@ -618,7 +621,6 @@ pub fn gas_guzzlers(blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
             Some(Hotdog::from(output_map))
         })
         .collect();
-
     Ok(Hotdogs { hotdogs })
 }
 // lib.rs/Substreams Modules/gas_guzzlers/Rust Code ends here

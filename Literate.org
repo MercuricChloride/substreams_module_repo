@@ -1,18 +1,19 @@
 #+title: Substreams Module Repo
 #+date:    2023-06-29
 
-* Tasks [1/8]
-- [ ] Add correct type conversion for things like token id etc.
-- [ ] Add the superrare nft trade module
-- [ ] Figure out why the filter_blur_trades module doesn't work with 1 input address
-- [ ] Add some new modules for DAOs
+* Tasks [2/9]
++ [ ] Add some degen modules
+  + [ ] CEX whale Swaps
++ [ ] Figure out why the filter_blur_trades module doesn't work with 1 input address
++ [ ] Add some new modules for DAOs
       I have some ideas regarding interesting modules for daos. Such as tracking ownership supply, as well as who is dumping what.
-- [ ] Make a plan on how to handle multi for multi trades with the seaport contracts
++ [ ] Make a plan on how to handle multi for multi trades with the seaport contracts
       Right now we are only handling trades from seaport if there is a single collection someone is trading for.
       We should probably also add support for many to many swaps
-- [ ] Add EOA support to the [[*etherscan_overview][etherscan_overview]] module
-- [X] Make the [[*nft_price]] module
-- [ ]
++ [ ] Add EOA support to the [[*etherscan_overview][etherscan_overview]] module
++ [ ] Add the superrare nft trade module
++ [X] Make the [[*nft_price]] module
++ [X] Add correct type conversion for things like token id etc.
 * Notes
 This is a test of literate programming with lsp-mode in emacs
 
@@ -913,7 +914,7 @@ use substreams::{
     store::{DeltaBigInt, Deltas, StoreNew, StoreSetIfNotExists, StoreSetIfNotExistsBigInt},
 };
 use substreams::{
-    log::println,
+    log::println as log_print,
     pb::substreams::store_delta::Operation,
     store::{StoreAdd, StoreAddBigInt, StoreGet, StoreGetBigInt},
 };
@@ -943,7 +944,7 @@ pub fn map_events(param: String, blk: eth::Block) -> Result<Hotdogs, SubstreamEr
 
     if split.len() % 2 != 0 {
         for item in split {
-            println(format!("item {:?}\n\n\n", item));
+            //println(format!("item {:?}\n\n\n", item));
         }
 
         panic!("Every address needs an ABI");
@@ -1411,7 +1412,10 @@ Combines the [[*seaport_trades]] and [[*blur_trades]] modules into one
 #+NAME: lib.rs/Substreams Modules/nft_price/Rust Code
 #+begin_src rust
 #[substreams::handlers::map]
-pub fn nft_trades(blur_trades: Hotdogs, seaport_trades: Hotdogs) -> Result<Hotdogs, SubstreamError> {
+pub fn nft_trades(
+    blur_trades: Hotdogs,
+    seaport_trades: Hotdogs,
+) -> Result<Hotdogs, SubstreamError> {
     let mut hotdogs = Vec::from(blur_trades.hotdogs);
     hotdogs.extend(seaport_trades.hotdogs);
     Ok(Hotdogs { hotdogs })
@@ -1521,6 +1525,7 @@ This needs a few modules in order to display nicely however.
 **** store_unique_users
 
 stores the unique users in a store by address
+
 ***** Rust Code
 #+NAME: lib.rs/Substreams Modules/unique_users/store_unique_users/Rust Code
 #+begin_src rust
@@ -1542,6 +1547,7 @@ pub fn store_unique_users(hotdogs: Hotdogs, s: StoreSetIfNotExistsBigInt) {
     }
 }
 #+end_src
+
 ***** Yaml Definition
 #+NAME: lib.rs/Substreams Modules/unique_users/store_unique_users/Yaml Definition
 #+begin_src yaml :noweb-ref substream-module-yaml-defs :tangle no
@@ -1804,7 +1810,6 @@ pub fn gas_guzzlers(blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
             Some(Hotdog::from(output_map))
         })
         .collect();
-
     Ok(Hotdogs { hotdogs })
 }
 #+end_src
@@ -1818,3 +1823,110 @@ pub fn gas_guzzlers(blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
     output:
       type: proto:soulbound_modules.v1.Hotdogs
 #+end_src
+
+*** ipfs_test
+This is a test of using the ipfs library within wasm
+
+**** Rust Code
+#+NAME: lib.rs/Substreams Modules/ipfs_test/Rust Code
+#+begin_src rust :tangle no
+#[link(wasm_import_module = "logger")]
+extern "C" {
+    pub fn println(ptr: *const u8, len: usize);
+    pub fn foo();
+}
+
+// takes an input string of address&&abi*
+#[substreams::handlers::map]
+pub fn ipfs_test(blk: eth::Block) -> Result<Hotdogs, SubstreamError> {
+    let s = "hello world";
+
+    //print_log("hi there");
+
+    unsafe {
+        foo();
+    }
+
+    Ok(Hotdogs::default())
+}
+#+end_src
+**** Yaml Definition
+#+NAME: lib.rs/Substreams Modules/gas_guzzlers/Yaml Definition
+#+begin_src yaml :noweb-ref substream-module-yaml-defs :tangle no
+  - name: ipfs_test
+    kind: map
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:soulbound_modules.v1.Hotdogs
+#+end_src
+
+* Adding IPFS functionality within substreams
+
+Useful links:
+- [[https://wasi.dev/][wasi docs]]
+- [[https://github.com/streamingfast/substreams/][substreams repo]]
+
+
+So we have an issue for this geo substream.
+
+And that is adding support for querying the ipfs network.
+
+WASM doesn't allow for network or IO request. Only the ability to make calls to js functions or "host functions" within the wasm runtime environment it is running if not in the browser.
+
+This is how the ipfs.cat() function worked within graph-node.
+
+So to add ipfs support for substreams, we are going to need to add:
+- [ ] A host module for calling ipfs functions
+
+So it looks like we aren't quite adding the foo function at the right spot as it is not being added to the runtime.
+
+** What runtime do substreams modules execute in?
+
+[[https://github.com/streamingfast/substreams/tree/develop/wasm][Wasm folder on the substreams repo]]
+
+It looks like it is one of two runtimes.
+
+But according to this feature addition, wazero is the runtime we care about. [[https://github.com/streamingfast/substreams/commit/3dccc7ac81b420631436ef593030be1cbd83fea8][commit]] [[https://github.com/streamingfast/substreams/pull/229][PR]]
+
+WASMTIME is still available via an env var however.
+
+I think the host_functions function is in /wasm/wazero/module.go function: addHostFunctions
+
+[[https://github.com/streamingfast/substreams-rs/blob/develop/substreams/src/log.rs#L84C1-L95C2][Here]] is how they use the println function from within rust, we are just going to do the same thing for adding ipfs support.
+[[https://github.com/streamingfast/substreams-rs/blob/develop/substreams/src/externs.rs][Here]] is how they are defining the external function call to be used within the substreams-rs package.
+[[https://github.com/streamingfast/substreams/blob/develop/wasm/wazero/logger_hostmod.go#L16][Here]] is how they define it has a host function within the runtime!
+
+It looks like there is a default ipfs gateway? Check out the root command within /cmd/root.go
+
+
+
+#+begin_src go
+func addHostFunctions(ctx context.Context, runtime wazero.Runtime, moduleName string, funcs []funcs) (wazero.CompiledModule, error) {
+	build := runtime.NewHostModuleBuilder(moduleName)
+	for _, f := range funcs {
+		build.NewFunctionBuilder().
+			WithGoModuleFunction(f.f, f.input, f.output).
+			WithName(f.name).
+			Export(f.name)
+	}
+	return build.Compile(ctx)
+}
+#+end_src
+
+The functions added are of type
+#+begin_src go
+type funcs struct {
+	name  string
+	input []parm
+	//inputNames  []string
+	output []parm
+	f      api.GoModuleFunction
+}
+#+end_src
+
+1. Wasmtime
+   [[https://docs.rs/wasmtime-wasi/latest/wasmtime_wasi/][docs]]
+
+2. Wazero
+   [[https://wazero.io/docs/][docs]]
