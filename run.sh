@@ -19,17 +19,18 @@ fi
 cp substreams.yaml substreams.yaml.bak
 
 # replace the placeholder with the input string
-sed -i "s|MAP_EVENTS_PARAMS|$map_events_input|g" substreams.yaml
-sed -i "s|FILTER_EVENTS_PARAMS|$filter_events_input|g" substreams.yaml
-sed -i "s|FILTER_BLUR_TRADES_PARAMS|$filter_blur_trades_input|g" substreams.yaml
-sed -i "s|ETHERSCAN_OVERVIEW_PARAMS|$map_events_input|g" substreams.yaml
+# REPLACE -i "" with -i if you are on Linux!!!! Todo: make this cross-platform
+sed -i "" "s|MAP_EVENTS_PARAMS|$map_events_input|g" substreams.yaml
+sed -i "" "s|FILTER_EVENTS_PARAMS|$filter_events_input|g" substreams.yaml
+sed -i "" "s|FILTER_BLUR_TRADES_PARAMS|$filter_blur_trades_input|g" substreams.yaml
+sed -i "" "s|ETHERSCAN_OVERVIEW_PARAMS|$map_events_input|g" substreams.yaml
 
 # run the substream
 substreams run map_events \
---start-block 17252197 \
+--start-block 15252197 \
 --stop-block +200 \
 --production-mode \
--e eth.firehose.pinax.network:9000
+# -e eth.firehose.pinax.network:9000
 
 
 # restore the original file
