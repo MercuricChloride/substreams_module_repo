@@ -31,6 +31,7 @@ params:
   map_events: MAP_EVENTS_PARAMS
   filter_events: FILTER_EVENTS_PARAMS
   filter_blur_trades: FILTER_BLUR_TRADES_PARAMS
+  filter_seaport_trades: FILTER_SEAPORT_TRADES_PARAMS
   etherscan_overview: ETHERSCAN_OVERVIEW_PARAMS
   #filter_blur_trades: "0x5Af0D9827E0c53E4799BB226655A1de152A425a5&&0x5Af0D9827E0c53E4799BB226655A1de152A425a5"
 # Substreams Yaml/Params ends here

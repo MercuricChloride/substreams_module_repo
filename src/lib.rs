@@ -148,7 +148,7 @@ fn filter_blur_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, Substr
         .map(|address| address.to_lowercase())
         .collect::<Vec<_>>();
 
-    if filtered_addresses.len() == 1 {
+    if filtered_addresses.len() == 1 && filtered_addresses[0] == "".to_string() {
         return Ok(Hotdogs {
             hotdogs: hotdogs.hotdogs,
         });
@@ -266,7 +266,7 @@ fn filter_seaport_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, Sub
         .map(|address| address.to_lowercase())
         .collect::<Vec<_>>();
 
-    if filtered_addresses.len() == 1 {
+    if filtered_addresses.len() == 1 && filtered_addresses[0] == "".to_string() {
         return Ok(Hotdogs {
             hotdogs: hotdogs.hotdogs,
         });
@@ -354,7 +354,10 @@ pub fn seaport_trades(hotdogs: Hotdogs) -> Result<Hotdogs, SubstreamError> {
 
 // [[file:../Literate.org::lib.rs/Substreams Modules/nft_price/Rust Code][lib.rs/Substreams Modules/nft_price/Rust Code]]
 #[substreams::handlers::map]
-pub fn nft_trades(blur_trades: Hotdogs, seaport_trades: Hotdogs) -> Result<Hotdogs, SubstreamError> {
+pub fn nft_trades(
+    blur_trades: Hotdogs,
+    seaport_trades: Hotdogs,
+) -> Result<Hotdogs, SubstreamError> {
     let mut hotdogs = Vec::from(blur_trades.hotdogs);
     hotdogs.extend(seaport_trades.hotdogs);
     Ok(Hotdogs { hotdogs })

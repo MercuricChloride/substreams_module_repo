@@ -1,10 +1,9 @@
 #+title: Substreams Module Repo
 #+date:    2023-06-29
 
-* Tasks [1/8]
+* Tasks [0/5]
 - [ ] Add correct type conversion for things like token id etc.
 - [ ] Add the superrare nft trade module
-- [ ] Figure out why the filter_blur_trades module doesn't work with 1 input address
 - [ ] Add some new modules for DAOs
       I have some ideas regarding interesting modules for daos. Such as tracking ownership supply, as well as who is dumping what.
 - [ ] Make a plan on how to handle multi for multi trades with the seaport contracts
@@ -147,6 +146,7 @@ params:
   map_events: MAP_EVENTS_PARAMS
   filter_events: FILTER_EVENTS_PARAMS
   filter_blur_trades: FILTER_BLUR_TRADES_PARAMS
+  filter_seaport_trades: FILTER_SEAPORT_TRADES_PARAMS
   etherscan_overview: ETHERSCAN_OVERVIEW_PARAMS
   #filter_blur_trades: "0x5Af0D9827E0c53E4799BB226655A1de152A425a5&&0x5Af0D9827E0c53E4799BB226655A1de152A425a5"
 #+end_src
@@ -156,7 +156,111 @@ The module yaml config are exported within the module definition located at [[#s
 #+NAME: Substreams Yaml/Modules
 #+begin_src yaml :noweb yes
 modules:
-  <<substream-module-yaml-defs>>
+    - name: map_events
+      kind: map
+      inputs:
+        - params: string
+        - source: sf.ethereum.type.v2.Block
+      output:
+        type: proto:soulbound_modules.v1.Hotdogs
+    - name: filter_events
+      kind: map
+      inputs:
+        - params: string
+        - map: map_events
+      output:
+        type: proto:soulbound_modules.v1.Hotdogs
+    - name: all_blur_trades
+      kind: map
+      inputs:
+        - source: sf.ethereum.type.v2.Block
+      output:
+        type: proto:soulbound_modules.v1.Hotdogs
+    - name: filter_blur_trades
+      kind: map
+      inputs:
+        - params: string
+        - map: all_blur_trades
+        #- map: map_events
+      output:
+        type: proto:soulbound_modules.v1.Hotdogs
+    - name: blur_trades
+      kind: map
+      inputs:
+        - map: filter_blur_trades
+      output:
+        type: proto:soulbound_modules.v1.Hotdogs
+    - name: all_seaport_trades
+      kind: map
+      inputs:
+        - source: sf.ethereum.type.v2.Block
+      output:
+        type: proto:soulbound_modules.v1.Hotdogs
+    - name: filter_seaport_trades
+      kind: map
+      inputs:
+        - params: string
+        - map: all_seaport_trades
+      output:
+        type: proto:soulbound_modules.v1.Hotdogs
+    - name: seaport_trades
+      kind: map
+      inputs:
+        - map: filter_seaport_trades
+      output:
+        type: proto:soulbound_modules.v1.Hotdogs
+    - name: nft_trades
+      kind: map
+      inputs:
+        - map: seaport_trades
+        - map: blur_trades
+      output:
+        type: proto:soulbound_modules.v1.Hotdogs
+    - name: graph_out
+      kind: map
+      inputs:
+        - map: map_events
+      output:
+        type: proto:substreams.entity.v1.EntityChanges
+    - name: ownership_distribution
+      kind: store
+      updatePolicy: add
+      valueType: bigint
+      inputs:
+        - map: map_events
+    - name: store_unique_users
+      kind: store
+      updatePolicy: set_if_not_exists
+      valueType: bigint
+      inputs:
+        - map: map_events
+    - name: count_unique_users
+      kind: store
+      updatePolicy: add
+      valueType: bigint
+      inputs:
+        - store: store_unique_users
+          mode: deltas
+    - name: map_unique_users
+      kind: map
+      inputs:
+        - store: count_unique_users
+          mode: get
+      output:
+        type: proto:soulbound_modules.v1.Hotdog
+    - name: etherscan_overview
+      kind: map
+      inputs:
+        - params: string
+        - source: sf.ethereum.type.v2.Block
+      output:
+        type: proto:soulbound_modules.v1.Hotdogs
+    - name: gas_guzzlers
+      kind: map
+      inputs:
+        - source: sf.ethereum.type.v2.Block
+      output:
+        type: proto:soulbound_modules.v1.Hotdogs
 #+end_src
 
 * build.rs
@@ -1121,7 +1225,7 @@ fn filter_blur_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, Substr
         .map(|address| address.to_lowercase())
         .collect::<Vec<_>>();
 
-    if filtered_addresses.len() == 1 {
+    if filtered_addresses.len() == 1 && filtered_addresses[0] == "".to_string() {
         return Ok(Hotdogs {
             hotdogs: hotdogs.hotdogs,
         });
@@ -1289,7 +1393,7 @@ fn filter_seaport_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, Sub
         .map(|address| address.to_lowercase())
         .collect::<Vec<_>>();
 
-    if filtered_addresses.len() == 1 {
+    if filtered_addresses.len() == 1 && filtered_addresses[0] == "".to_string() {
         return Ok(Hotdogs {
             hotdogs: hotdogs.hotdogs,
         });
@@ -1411,7 +1515,10 @@ Combines the [[*seaport_trades]] and [[*blur_trades]] modules into one
 #+NAME: lib.rs/Substreams Modules/nft_price/Rust Code
 #+begin_src rust
 #[substreams::handlers::map]
-pub fn nft_trades(blur_trades: Hotdogs, seaport_trades: Hotdogs) -> Result<Hotdogs, SubstreamError> {
+pub fn nft_trades(
+    blur_trades: Hotdogs,
+    seaport_trades: Hotdogs,
+) -> Result<Hotdogs, SubstreamError> {
     let mut hotdogs = Vec::from(blur_trades.hotdogs);
     hotdogs.extend(seaport_trades.hotdogs);
     Ok(Hotdogs { hotdogs })
