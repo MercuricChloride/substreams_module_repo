@@ -6,7 +6,7 @@ use std::{collections::HashMap, ops::Mul, str::from_utf8};
 use substreams_entity_change::tables::Tables;
 use substreams_ethereum::pb::eth::v2::TransactionTrace;
 
-use crate::pb::soulbound_modules::v1::{value::Value as ValueEnum, Value as ValueStruct};
+use crate::pb::soulbound_modules::v1::{value_struct::ValueEnum, ValueStruct};
 use crate::pb::soulbound_modules::v1::{Hotdog, Hotdogs, Map};
 use sha3::{self, Digest};
 use substreams::log::println;
@@ -19,8 +19,8 @@ impl From<Hotdog> for HashMap<String, ValueEnum> {
     fn from(hotdog: Hotdog) -> Self {
         let mut map: HashMap<String, ValueEnum> = HashMap::new();
 
-        for (key, value) in hotdog.map.as_ref().unwrap().keys.iter() {
-            map.insert(key.to_string(), value.value.clone().unwrap());
+        for (key, value_struct) in hotdog.map.as_ref().unwrap().kv.iter() {
+            map.insert(key.to_string(), value_struct.value_enum.clone().unwrap());
         }
 
         map.insert(
@@ -52,14 +52,14 @@ impl From<HashMap<String, ValueEnum>> for Hotdog {
             new_map.insert(
                 key.clone(),
                 ValueStruct {
-                    value: Some(value.clone()),
+                    value_enum: Some(value.clone()),
                 },
             );
         }
 
         Hotdog {
             hotdog_name,
-            map: Some(Map { keys: new_map }),
+            map: Some(Map { kv: new_map }),
         }
     }
 }
@@ -122,7 +122,7 @@ pub fn log_to_hotdog(
 // [[file:../Literate.org::helpers.rs/Hotdog Helpers/Type Conversions/ValueStruct into -> ValueEnum][helpers.rs/Hotdog Helpers/Type Conversions/ValueStruct into -> ValueEnum]]
 impl Into<ValueEnum> for ValueStruct {
     fn into(self) -> ValueEnum {
-        match self.value {
+        match self.value_enum {
             Some(value) => value,
             None => panic!("value must be present"),
         }
@@ -133,7 +133,7 @@ impl Into<ValueEnum> for ValueStruct {
 // [[file:../Literate.org::helpers.rs/Hotdog Helpers/Type Conversions/Map into -> HashMap<String, ValueEnum>][helpers.rs/Hotdog Helpers/Type Conversions/Map into -> HashMap<String, ValueEnum>]]
 impl Into<HashMap<String, ValueEnum>> for Map {
     fn into(self) -> HashMap<String, ValueEnum> {
-        self.keys
+        self.kv
             .into_iter()
             .map(|(key, value)| (key, value.into()))
             .collect()
@@ -298,11 +298,11 @@ pub fn param_value_to_value_enum(value: &Value) -> ValueEnum {
                 map.insert(
                     i.to_string(),
                     ValueStruct {
-                        value: Some(param_value_to_value_enum(&value)),
+                        value_enum: Some(param_value_to_value_enum(&value)),
                     },
                 );
             }
-            ValueEnum::MapValue(Map { keys: map })
+            ValueEnum::MapValue(Map { kv: map })
         }
         Value::String(string) => ValueEnum::StringValue(string.to_string()),
         Value::Bytes(bytes) => ValueEnum::StringValue(format_hex(&bytes)),
@@ -313,11 +313,11 @@ pub fn param_value_to_value_enum(value: &Value) -> ValueEnum {
                 map.insert(
                     i.to_string(),
                     ValueStruct {
-                        value: Some(param_value_to_value_enum(&value)),
+                        value_enum: Some(param_value_to_value_enum(&value)),
                     },
                 );
             }
-            ValueEnum::MapValue(Map { keys: map })
+            ValueEnum::MapValue(Map { kv: map })
         }
         Value::Tuple(tuple_arr) => {
             let mut map = HashMap::new();
@@ -325,11 +325,11 @@ pub fn param_value_to_value_enum(value: &Value) -> ValueEnum {
                 map.insert(
                     name.to_string(),
                     ValueStruct {
-                        value: Some(param_value_to_value_enum(&value)),
+                        value_enum: Some(param_value_to_value_enum(&value)),
                     },
                 );
             }
-            ValueEnum::MapValue(Map { keys: map })
+            ValueEnum::MapValue(Map { kv: map })
         }
     }
 }

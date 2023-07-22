@@ -2,8 +2,8 @@
 syntax = "proto3";
 package soulbound_modules.v1;
 
-message Value {
-  oneof value {
+message ValueStruct {
+  oneof value_enum {
     int32 int64_value = 1;
     uint64 uint64_value = 2;
     string string_value = 3;
@@ -12,7 +12,7 @@ message Value {
 }
 
 message Map {
-  map<string, Value> keys = 1;
+  map<string, ValueStruct> kv = 1;
 }
 
 message Hotdog {

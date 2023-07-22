@@ -9,7 +9,7 @@ mod pb;
 use ethereum_abi::Abi;
 use helpers::{add_tx_meta, format_hex, log_to_hotdog, HotdogHelpers, UpdateTables};
 use nft_helpers::NftPrice;
-use pb::soulbound_modules::v1::{value::Value as ValueEnum, Hotdog, Hotdogs, Value as ValueStruct};
+use pb::soulbound_modules::v1::{value_struct::ValueEnum, Hotdog, Hotdogs, ValueStruct};
 use std::collections::HashMap;
 use substreams::{
     self,
@@ -175,8 +175,8 @@ fn filter_blur_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, Substr
 
         match (buy, sell) {
             (ValueEnum::MapValue(buy_map), ValueEnum::MapValue(sell_map)) => {
-                let buy_collection = buy_map.keys.get("collection").unwrap().clone();
-                let sell_collection = sell_map.keys.get("collection").unwrap().clone();
+                let buy_collection = buy_map.kv.get("collection").unwrap().clone();
+                let sell_collection = sell_map.kv.get("collection").unwrap().clone();
                 match (buy_collection.into(), sell_collection.into()) {
                     (
                         ValueEnum::StringValue(buy_collection),
@@ -294,7 +294,7 @@ fn filter_seaport_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, Sub
         match (consideration, offer) {
             (ValueEnum::MapValue(consideration), ValueEnum::MapValue(offer)) => {
                 // the event field "offer" is an array of offers, this is what is being purchased
-                for (index, value) in offer.keys.iter() {
+                for (index, value) in offer.kv.iter() {
                     let value: HashMap<String, ValueEnum> = match value.clone().into() {
                         ValueEnum::MapValue(value) => value.into(),
                         _ => continue,
@@ -310,7 +310,7 @@ fn filter_seaport_trades(param: String, hotdogs: Hotdogs) -> Result<Hotdogs, Sub
                     }
                 }
                 // the event field "consideration" is an array of considerations, this is what is being sold to purchase the offer
-                for (index, value) in consideration.keys.iter() {
+                for (index, value) in consideration.kv.iter() {
                     let value: HashMap<String, ValueEnum> = match value.clone().into() {
                         ValueEnum::MapValue(value) => value.into(),
                         _ => continue,

@@ -1,9 +1,9 @@
-use crate::{ValueEnum, helpers::clone_prefix};
+use crate::{helpers::clone_prefix, ValueEnum};
 use std::collections::HashMap;
-use substreams::scalar::{BigInt, BigDecimal};
 use std::str::FromStr;
+use substreams::scalar::{BigDecimal, BigInt};
 
-use crate::{pb::soulbound_modules::v1::Hotdog, helpers::HotdogHelpers};
+use crate::{helpers::HotdogHelpers, pb::soulbound_modules::v1::Hotdog};
 
 /// A struct that allows conversions between a hotdog and a hotdog of type NftPrice
 /// NFTPrice contains:
@@ -47,17 +47,17 @@ fn blur_trade_to_nft_price(hotdog: &Hotdog) -> Result<Hotdog, &str> {
 
     match (buy, sell) {
         (ValueEnum::MapValue(buy_map), ValueEnum::MapValue(sell_map)) => {
-            let collection = buy_map.keys.get("collection").unwrap().clone();
-            let price = buy_map.keys.get("price").unwrap().clone();
-            let price_string: String = match price.value.clone().unwrap() {
+            let collection = buy_map.kv.get("collection").unwrap().clone();
+            let price = buy_map.kv.get("price").unwrap().clone();
+            let price_string: String = match price.value_enum.clone().unwrap() {
                 ValueEnum::StringValue(price_string) => price_string,
                 _ => return Err("price is not a string"),
             };
 
             let price_in_eth = wei_to_eth(&price_string);
             let price_in_eth = ValueEnum::StringValue(price_in_eth);
-            let payment_token = buy_map.keys.get("paymentToken").unwrap().clone();
-            let token_id = sell_map.keys.get("tokenId").unwrap().clone();
+            let payment_token = buy_map.kv.get("paymentToken").unwrap().clone();
+            let token_id = sell_map.kv.get("tokenId").unwrap().clone();
             let name = ValueEnum::StringValue("NFTPrice".to_string());
 
             let mut output_map: HashMap<String, ValueEnum> = HashMap::new();
@@ -87,16 +87,19 @@ fn seaport_trade_to_nft_price(hotdog: &Hotdog) -> Result<Hotdog, &str> {
 
     let consideration = match map.get("consideration") {
         Some(consideration) => consideration.clone(),
-        None => panic!("map does not contain a consideration field {:?}", hotdog)
+        None => panic!("map does not contain a consideration field {:?}", hotdog),
     };
 
     let offer = match map.get("offer") {
         Some(offer) => offer.clone(),
-        None => panic!("map does not contain a offer field {:?}", map)
+        None => panic!("map does not contain a offer field {:?}", map),
     };
 
     let mut output_map: HashMap<String, ValueEnum> = HashMap::new();
-    output_map.insert("hotdog_name".to_string(), ValueEnum::StringValue("NFTPrice".to_string()));
+    output_map.insert(
+        "hotdog_name".to_string(),
+        ValueEnum::StringValue("NFTPrice".to_string()),
+    );
     clone_prefix(&map, &mut output_map, &"tx_".to_string());
 
     // the whole thang goes like this:
@@ -116,51 +119,59 @@ fn seaport_trade_to_nft_price(hotdog: &Hotdog) -> Result<Hotdog, &str> {
             // }
             let mut nft_value: BigInt = BigInt::zero();
 
-            for (index, offer) in offer.keys.iter() {
-                let value:ValueEnum = offer.clone().into();
+            for (index, offer) in offer.kv.iter() {
+                let value: ValueEnum = offer.clone().into();
 
                 let offer = match value {
-                    ValueEnum::MapValue(map) => {
-                        map
-                    },
-                    _ => panic!("offer is not a map!")
+                    ValueEnum::MapValue(map) => map,
+                    _ => panic!("offer is not a map!"),
                 };
 
-                let offer = offer.keys;
+                let offer = offer.kv;
 
                 let item_type = offer.get("itemType").unwrap().clone();
 
                 let item_type = match item_type.into() {
                     ValueEnum::StringValue(item_type) => item_type,
-                    _ => panic!("item type is not a string!")
+                    _ => panic!("item type is not a string!"),
                 };
 
                 // if the item type isn't 2, it isn't an nft and we don't care about it
                 if item_type != "2" {
-                    return Ok(Hotdog::default())
+                    return Ok(Hotdog::default());
                 }
 
-                let collection:ValueEnum = offer.get("token").unwrap().clone().into();
-                let token_id:ValueEnum = offer.get("identifier").unwrap().clone().into();
+                let collection: ValueEnum = offer.get("token").unwrap().clone().into();
+                let token_id: ValueEnum = offer.get("identifier").unwrap().clone().into();
 
-                if let Some(existing_collection) = output_map.insert("collection".to_string(), collection.clone()) {
+                if let Some(existing_collection) =
+                    output_map.insert("collection".to_string(), collection.clone())
+                {
                     match (existing_collection, collection) {
-                        (ValueEnum::StringValue(existing_collection), ValueEnum::StringValue(collection)) => {
+                        (
+                            ValueEnum::StringValue(existing_collection),
+                            ValueEnum::StringValue(collection),
+                        ) => {
                             if existing_collection != collection {
                                 return Err("multiple collections in one hotdog");
                             }
-                        },
-                        _ => panic!("collection is not a string!")
+                        }
+                        _ => panic!("collection is not a string!"),
                     }
                 };
-                if let Some(existing_token_id) = output_map.insert("token_id".to_string(), token_id.clone()) {
+                if let Some(existing_token_id) =
+                    output_map.insert("token_id".to_string(), token_id.clone())
+                {
                     match (existing_token_id, token_id) {
-                        (ValueEnum::StringValue(existing_token_id), ValueEnum::StringValue(token_id)) => {
+                        (
+                            ValueEnum::StringValue(existing_token_id),
+                            ValueEnum::StringValue(token_id),
+                        ) => {
                             if existing_token_id != token_id {
                                 return Err("multiple token_ids in one hotdog");
                             }
-                        },
-                        _ => panic!("token_id is not a string!")
+                        }
+                        _ => panic!("token_id is not a string!"),
                     }
                 };
             }
@@ -183,55 +194,57 @@ fn seaport_trade_to_nft_price(hotdog: &Hotdog) -> Result<Hotdog, &str> {
             // ERC1155_WITH_CRITERIA
             // }
 
-            for (index, consideration) in consideration.keys.iter() {
+            for (index, consideration) in consideration.kv.iter() {
                 let consideration: ValueEnum = consideration.clone().into();
 
                 let consideration = match consideration {
-                    ValueEnum::MapValue(map) => {
-                        map
-                    },
-                    _ => panic!("offer is not a map!")
+                    ValueEnum::MapValue(map) => map,
+                    _ => panic!("offer is not a map!"),
                 };
 
-                let consideration = consideration.keys;
+                let consideration = consideration.kv;
 
                 let item_type = consideration.get("itemType").unwrap().clone();
                 let item_type = match item_type.into() {
                     ValueEnum::StringValue(item_type) => item_type,
-                    _ => panic!("item type is not a string!")
+                    _ => panic!("item type is not a string!"),
                 };
 
                 // if the item type is 2, it is an NFT and we don't want to track it
                 if item_type == "2" {
-                    return Ok(Hotdog::default())
+                    return Ok(Hotdog::default());
                 }
 
-                let token:ValueEnum = consideration.get("token").unwrap().clone().into();
+                let token: ValueEnum = consideration.get("token").unwrap().clone().into();
                 let amount = consideration.get("amount").unwrap().clone();
-                let amount_string: String = match amount.value.clone().unwrap() {
+                let amount_string: String = match amount.value_enum.clone().unwrap() {
                     ValueEnum::StringValue(amount_string) => amount_string,
-                    _ => return Err("amount is not a string")
+                    _ => return Err("amount is not a string"),
                 };
 
                 let amount = BigInt::from_str(&amount_string).unwrap();
                 nft_value = nft_value + amount;
 
-                if let Some(existing_token) = output_map.insert("payment_token".to_string(), token.clone()) {
+                if let Some(existing_token) =
+                    output_map.insert("payment_token".to_string(), token.clone())
+                {
                     match (existing_token, token) {
                         (ValueEnum::StringValue(existing_token), ValueEnum::StringValue(token)) => {
                             if existing_token != token {
                                 return Err("multiple payment_tokens in one hotdog");
                             }
-                        },
-                        _ => panic!("token is not a string!")
+                        }
+                        _ => panic!("token is not a string!"),
                     }
                 };
             }
-            output_map.insert("price".to_string(), ValueEnum::StringValue(nft_value.to_string()));
-
+            output_map.insert(
+                "price".to_string(),
+                ValueEnum::StringValue(nft_value.to_string()),
+            );
 
             Ok(Hotdog::from(output_map))
         }
-        _ => Ok(Hotdog::default())
+        _ => Ok(Hotdog::default()),
     }
 }

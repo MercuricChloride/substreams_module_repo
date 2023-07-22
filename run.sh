@@ -8,8 +8,8 @@ doodles_address="0x8a90cab2b38dba80c64b7734e58ee1db38b8992e"
 
 map_events_input="${bayc_address}\&\&${bayc_abi}"
 filter_events_input="Transfer"
-filter_blur_trades_input="0x5Af0D9827E0c53E4799BB226655A1de152A425a5"
-#filter_blur_trades_input="0x8a90cab2b38dba80c64b7734e58ee1db38b8992e"
+#filter_blur_trades_input="0x5Af0D9827E0c53E4799BB226655A1de152A425a5"
+filter_blur_trades_input="0x8a90cab2b38dba80c64b7734e58ee1db38b8992e\&\&0x8a90cab2b38dba80c64b7734e58ee1db38b8992e"
 
 if [ -e substreams.yaml.bak ]
 then
@@ -28,10 +28,10 @@ sed -i "s|FILTER_SEAPORT_TRADES_PARAMS|$filter_blur_trades_input|g" substreams.y
 sed -i "s|ETHERSCAN_OVERVIEW_PARAMS|$map_events_input|g" substreams.yaml
 
 # run the substream
-substreams run blur_trades \
---start-block 17330372 \
---stop-block +5000 \
--e eth.firehose.pinax.network:9000
+substreams gui blur_trades \
+--start-block 17730372 \
+--stop-block +5000 #\
+#-e eth.firehose.pinax.network:9000
 
 
 # restore the original file
